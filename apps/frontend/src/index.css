@@ -1,0 +1,112 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Outfit', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Premium Palette */
+  --color-brand-50: #f0f7ff;
+  --color-brand-100: #e0effe;
+  --color-brand-500: #0284c7;
+  --color-brand-600: #0369a1;
+  --color-brand-700: #075985;
+
+  --color-dark-900: #0f172a;
+  --color-dark-950: #020617;
+}
+
+:root {
+  font-family: var(--font-sans);
+  background-color: var(--color-dark-950);
+  color: var(--color-slate-100);
+  
+  --glass-bg: rgba(15, 23, 42, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-hover-bg: rgba(15, 23, 42, 0.8);
+  --glass-hover-border: rgba(2, 132, 199, 0.3);
+  --glass-hover-shadow: rgba(2, 132, 199, 0.15);
+}
+
+:root.light {
+  --color-dark-950: #f8fafc;
+  --color-slate-950: #f8fafc;
+  --color-slate-900: #f1f5f9;
+  --color-slate-800: #e2e8f0;
+  --color-slate-700: #cbd5e1;
+  --color-slate-600: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-400: #475569;
+  --color-slate-300: #334155;
+  --color-slate-200: #1e293b;
+  --color-slate-100: #0f172a;
+  
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(15, 23, 42, 0.08);
+  --glass-hover-bg: rgba(255, 255, 255, 0.85);
+  --glass-hover-border: rgba(2, 132, 199, 0.4);
+  --glass-hover-shadow: rgba(2, 132, 199, 0.05);
+}
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+  background-color: var(--color-dark-950);
+  color: var(--color-slate-100);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.light :is(.text-white, .hover\:text-white:hover):not(button):not([type="button"]):not([type="submit"]):not(.text-white-keep):not(.text-white-icon) {
+  color: #020617 !important;
+}
+
+.donut-label {
+  fill: #f8fafc;
+}
+.light .donut-label {
+  fill: #020617;
+}
+
+/* Glassmorphism custom classes */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.glass-panel-hover {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glass-panel-hover:hover {
+  background: var(--glass-hover-bg);
+  border-color: var(--glass-hover-border);
+  box-shadow: 0 10px 30px -10px var(--glass-hover-shadow);
+}
+
+/* Custom scrollbar for spreadsheet grid */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+:root:not(.light) ::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.5);
+}
+:root:not(.light) ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+:root:not(.light) ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+:root.light ::-webkit-scrollbar-track {
+  background: rgba(226, 232, 240, 0.7);
+}
+:root.light ::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.5);
+  border-radius: 4px;
+}
+:root.light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.7);
+}

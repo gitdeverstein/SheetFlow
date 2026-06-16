@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    name: Lint + TypeCheck + Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: TypeCheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [quality]
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: sheetflow
+          POSTGRES_PASSWORD: sheetflow
+          POSTGRES_DB: sheetflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium
+
+      - name: Run database migrations
+        run: npm run migrate
+        env:
+          DATABASE_URL: postgres://sheetflow:sheetflow@localhost:5432/sheetflow
+
+      - name: Seed database
+        run: npm run seed
+        env:
+          DATABASE_URL: postgres://sheetflow:sheetflow@localhost:5432/sheetflow
+
+      - name: Start servers
+        run: |
+          npm run dev > /tmp/servers.log 2>&1 &
+          # Wait for both servers to be ready
+          for url in http://localhost:5173 http://localhost:3000; do
+            echo "Waiting for $url ..."
+            for i in $(seq 1 30); do
+              if curl -sSf "$url" > /dev/null 2>&1; then
+                echo "$url is ready"
+                break
+              fi
+              sleep 1
+            done
+          done
+        env:
+          DATABASE_URL: postgres://sheetflow:sheetflow@localhost:5432/sheetflow
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          DATABASE_URL: postgres://sheetflow:sheetflow@localhost:5432/sheetflow
