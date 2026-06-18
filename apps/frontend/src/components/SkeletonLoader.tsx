@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 interface SkeletonLoaderProps {
   variant?: 'card' | 'table-row' | 'grid-cell';
   count?: number;
+  columns?: number;
 }
 
 function SkeletonBlock({ className }: { className?: string }) {
@@ -48,7 +49,7 @@ function SkeletonGridCell() {
   );
 }
 
-export default function SkeletonLoader({ variant = 'card', count = 1 }: SkeletonLoaderProps) {
+export default function SkeletonLoader({ variant = 'card', count = 1, columns = 5 }: SkeletonLoaderProps) {
   const items = Array.from({ length: count });
 
   if (variant === 'card') {
@@ -73,10 +74,17 @@ export default function SkeletonLoader({ variant = 'card', count = 1 }: Skeleton
 
   if (variant === 'grid-cell') {
     return (
-      <div className="grid grid-cols-5 border-b border-slate-800/60 bg-slate-950/40">
-        {items.map((_, i) => (
+      <div
+        className="grid border-b border-slate-800/60 bg-slate-950/40"
+        style={{ gridTemplateColumns: `repeat(${columns}, 1fr) 100px` }}
+      >
+        {Array.from({ length: columns }).map((_, i) => (
           <SkeletonGridCell key={i} />
         ))}
+        <div className="p-3 flex items-center justify-center gap-2">
+           <SkeletonBlock className="h-6 w-6 rounded-lg" />
+           <SkeletonBlock className="h-6 w-6 rounded-lg" />
+        </div>
       </div>
     );
   }

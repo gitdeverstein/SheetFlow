@@ -9,6 +9,8 @@ import ErrorBoundary from './components/ErrorBoundary.js';
 import AnimatedSection from './components/AnimatedSection.js';
 import { LayoutDashboard, Users, Package, FilePlus, X, User, Settings, Sun, Moon, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Modal } from './components/ui/Modal.js';
+import { Button } from './components/ui/Button.js';
 
 interface UserInfo {
   id: string;
@@ -291,89 +293,53 @@ function App() {
       </div>
 
       {/* Settings Modal */}
-      <AnimatePresence>
-        {settingsOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setSettingsOpen(false)}
-              className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
-            />
-            {/* Modal Dialog */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="glass-panel w-full max-w-md rounded-2xl shadow-2xl p-6 relative border border-slate-800/80 z-10"
-            >
-              <button
-                onClick={() => setSettingsOpen(false)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-              
-              <div className="flex items-center gap-2 mb-4">
-                <Settings className="text-brand-500" size={22} />
-                <h2 className="text-xl font-display font-semibold text-white">Application Settings</h2>
-              </div>
-              
-              {/* Settings Form */}
-              <div className="space-y-4 text-sm text-slate-300">
-                <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-white">Theme</p>
-                    <p className="text-xs text-slate-400">Switch between light and dark appearance.</p>
-                  </div>
-                  <button
-                    onClick={toggleTheme}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-sm text-slate-200 transition-colors cursor-pointer"
-                  >
-                    {isDarkMode ? <Sun size={14} /> : <Moon size={14} />}
-                    <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
-                  </button>
-                </div>
-
-                <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-white">Compact Mode</p>
-                    <p className="text-xs text-slate-400">Reduce padding in tables and grids.</p>
-                  </div>
-                  <input type="checkbox" className="w-4 h-4 accent-brand-500 rounded" />
-                </div>
-
-                <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-white">Auto-Save Sheets</p>
-                    <p className="text-xs text-slate-400">Automatically persist modifications.</p>
-                  </div>
-                  <input type="checkbox" defaultChecked className="w-4 h-4 accent-brand-500 rounded" />
-                </div>
-
-                <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-white">Developer Mode</p>
-                    <p className="text-xs text-slate-400">Show database queries in browser console.</p>
-                  </div>
-                  <input type="checkbox" className="w-4 h-4 accent-brand-500 rounded" />
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => setSettingsOpen(false)}
-                  className="px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-sm font-semibold transition-colors cursor-pointer"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </motion.div>
+      <Modal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        title="Application Settings"
+        icon={<Settings size={22} />}
+        footer={
+          <Button onClick={() => setSettingsOpen(false)}>
+            Save Changes
+          </Button>
+        }
+      >
+        <div className="space-y-4">
+          <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-white">Theme</p>
+              <p className="text-xs text-slate-400">Switch between light and dark appearance.</p>
+            </div>
+            <Button variant="secondary" onClick={toggleTheme} icon={isDarkMode ? <Sun size={14} /> : <Moon size={14} />}>
+              {isDarkMode ? 'Light Mode' : 'Dark Mode'}
+            </Button>
           </div>
-        )}
-      </AnimatePresence>
+
+          <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-white">Compact Mode</p>
+              <p className="text-xs text-slate-400">Reduce padding in tables and grids.</p>
+            </div>
+            <input type="checkbox" className="w-4 h-4 accent-brand-500 rounded" />
+          </div>
+
+          <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-white">Auto-Save Sheets</p>
+              <p className="text-xs text-slate-400">Automatically persist modifications.</p>
+            </div>
+            <input type="checkbox" defaultChecked className="w-4 h-4 accent-brand-500 rounded" />
+          </div>
+
+          <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-white">Developer Mode</p>
+              <p className="text-xs text-slate-400">Show database queries in browser console.</p>
+            </div>
+            <input type="checkbox" className="w-4 h-4 accent-brand-500 rounded" />
+          </div>
+        </div>
+      </Modal>
     </div>
     </ErrorBoundary>
   );
