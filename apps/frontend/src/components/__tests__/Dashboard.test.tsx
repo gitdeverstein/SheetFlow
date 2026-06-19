@@ -3,14 +3,21 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 // ── Shared mocks ──────────────────────────────────────────────────────────
 vi.mock('framer-motion', () => {
-  const C = ({ children, className, ...props }: any) => {
-    const safe = Object.fromEntries(
-      Object.entries(props).filter(([k]) => k !== 'animate' && k !== 'transition' && k !== 'initial' && k !== 'exit' && k !== 'variants' && k !== 'whileHover' && k !== 'whileTap')
-    );
-    return <div className={className} {...safe}>{children}</div>;
-  };
+  const motion = new Proxy({}, {
+    get: (_target, prop: string) => {
+      return ({ children, className, ...props }: any) => {
+        const safe = Object.fromEntries(
+          Object.entries(props).filter(([k]) =>
+            !['animate', 'transition', 'initial', 'exit', 'variants', 'whileHover', 'whileTap', 'layoutId', 'layout'].includes(k)
+          )
+        );
+        const Tag = prop as any;
+        return <Tag className={className} {...safe}>{children}</Tag>;
+      };
+    }
+  });
   return {
-    motion: new Proxy({}, { get: () => C }),
+    motion,
     AnimatePresence: ({ children }: any) => <>{children}</>,
   };
 });
@@ -244,20 +251,23 @@ describe('Dashboard', () => {
     expect(defaultStore.setActiveTab).toHaveBeenCalledWith('quotes');
   });
 
-  it('renders delete button and calls deleteQuote after confirm', () => {
+  it('renders delete button and calls deleteQuote after confirm', async () => {
     const deleteQuote = vi.fn().mockResolvedValue(undefined);
     mockAllHooks({ store: { deleteQuote } });
     render(<Dashboard />);
     const deleteButtons = screen.getAllByRole('button').filter(b => b.getAttribute('title') === 'Delete');
     expect(deleteButtons.length).toBeGreaterThanOrEqual(1);
 
-    const originalConfirm = window.confirm;
-    window.confirm = vi.fn(() => true);
-
     fireEvent.click(deleteButtons[0]);
-    expect(deleteQuote).toHaveBeenCalled();
 
-    window.confirm = originalConfirm;
+    // Check for modal and click delete
+    const modalDeleteButton = screen.getAllByRole('button').find(b => b.textContent === 'Delete');
+    expect(modalDeleteButton).toBeDefined();
+    fireEvent.click(modalDeleteButton!);
+
+    await waitFor(() => {
+      expect(deleteQuote).toHaveBeenCalled();
+    });
   });
 
   // ── Low Stock Watchlist ────────────────────────────────────────────────
