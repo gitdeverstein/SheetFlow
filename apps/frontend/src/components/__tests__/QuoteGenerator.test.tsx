@@ -3,14 +3,21 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 
 // ── Shared mocks ──────────────────────────────────────────────────────────
 vi.mock('framer-motion', () => {
-  const C = ({ children, className, ...props }: any) => {
-    const safe = Object.fromEntries(
-      Object.entries(props).filter(([k]) => k !== 'animate' && k !== 'transition' && k !== 'initial' && k !== 'exit' && k !== 'variants' && k !== 'whileHover' && k !== 'whileTap')
-    );
-    return <div className={className} {...safe}>{children}</div>;
-  };
+  const motion = new Proxy({}, {
+    get: (_target, prop: string) => {
+      return ({ children, className, ...props }: any) => {
+        const safe = Object.fromEntries(
+          Object.entries(props).filter(([k]) =>
+            !['animate', 'transition', 'initial', 'exit', 'variants', 'whileHover', 'whileTap', 'layoutId', 'layout'].includes(k)
+          )
+        );
+        const Tag = prop as any;
+        return <Tag className={className} {...safe}>{children}</Tag>;
+      };
+    }
+  });
   return {
-    motion: new Proxy({}, { get: () => C }),
+    motion,
     AnimatePresence: ({ children }: any) => <>{children}</>,
   };
 });
@@ -89,20 +96,19 @@ function mockAllHooks(overrides?: {
   vi.mocked(useSheetStore).mockReturnValue({ ...defaultStore, editingQuoteId, ...store });
 }
 
-/** Helper: select a customer, add an item, and select a product to create a valid quote form state. */  async function fillValidQuote() {
-  const customerSelect = screen.getByDisplayValue('Select a Customer...');
-  fireEvent.change(customerSelect, { target: { value: 'c1' } });
+/** Helper: select a customer, add an item, and select a product to create a valid quote form state. */
+async function fillValidQuote() {
+  const customerCombobox = screen.getByText('Select a Customer...');
+  fireEvent.click(customerCombobox);
+  const customerOption = screen.getByText('Acme Corp');
+  fireEvent.click(customerOption);
 
   fireEvent.click(screen.getByText('Add Item'));
 
-  // Select the first product in the newly added item row
-  const productSelects = screen.getAllByRole('combobox').filter(s => {
-    const options = Array.from(s.querySelectorAll('option'));
-    return options.some(o => o.textContent?.includes('Premium Widget'));
-  });
-  if (productSelects.length > 0) {
-    fireEvent.change(productSelects[0], { target: { value: 'i1' } });
-  }
+  const productCombobox = screen.getByText('Select Product...');
+  fireEvent.click(productCombobox);
+  const productOption = screen.getByText('Premium Widget');
+  fireEvent.click(productOption);
 }
 
 describe('QuoteGenerator', () => {
@@ -120,7 +126,7 @@ describe('QuoteGenerator', () => {
 
   it('renders the form elements', () => {
     render(<QuoteGenerator />);
-    expect(screen.getByPlaceholderText('Search customers...')).toBeInTheDocument();
+    expect(screen.getByText('Select a Customer...')).toBeInTheDocument();
     expect(screen.getByText('Add Item')).toBeInTheDocument();
     expect(screen.getByText('Summary')).toBeInTheDocument();
     expect(screen.getByText('Total Quote Value')).toBeInTheDocument();
@@ -135,21 +141,20 @@ describe('QuoteGenerator', () => {
   });
 
   // ── Customer Selection ────────────────────────────────────────────────
-  it('renders customer options in the dropdown', () => {
+  it('renders customer options in the dropdown', async () => {
     render(<QuoteGenerator />);
-    const options = screen.getAllByRole('option');
-    const customerOptions = options.filter(o => o.textContent?.includes('Acme Corp') || o.textContent?.includes('Beta Inc'));
-    expect(customerOptions.length).toBeGreaterThanOrEqual(2);
+    fireEvent.click(screen.getByText('Select a Customer...'));
+    expect(screen.getByText('Acme Corp')).toBeInTheDocument();
+    expect(screen.getByText('Beta Inc')).toBeInTheDocument();
   });
 
-  it('filters customers by search text', () => {
+  it('filters customers by search text', async () => {
     render(<QuoteGenerator />);
-    const searchInput = screen.getByPlaceholderText('Search customers...');
+    fireEvent.click(screen.getByText('Select a Customer...'));
+    const searchInput = screen.getByPlaceholderText('Search...');
     fireEvent.change(searchInput, { target: { value: 'Acme' } });
-    // The select options are filtered by the search state
-    const options = screen.getAllByRole('option');
-    const acmeOptions = options.filter(o => o.textContent?.includes('Acme Corp'));
-    expect(acmeOptions.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Acme Corp')).toBeInTheDocument();
+    expect(screen.queryByText('Beta Inc')).toBeNull();
   });
 
   // ── Items Management ──────────────────────────────────────────────────
@@ -174,12 +179,12 @@ describe('QuoteGenerator', () => {
   });
 
   // ── Product Selection ─────────────────────────────────────────────────
-  it('renders inventory items in product select', () => {
+  it('renders inventory items in product select', async () => {
     render(<QuoteGenerator />);
     fireEvent.click(screen.getByText('Add Item'));
-    const options = screen.getAllByRole('option');
-    const productOptions = options.filter(o => o.textContent?.includes('Premium Widget') || o.textContent?.includes('Ergonomic Gadget'));
-    expect(productOptions.length).toBeGreaterThanOrEqual(2);
+    fireEvent.click(screen.getByText('Select Product...'));
+    expect(screen.getByText('Premium Widget')).toBeInTheDocument();
+    expect(screen.getByText('Ergonomic Gadget')).toBeInTheDocument();
   });
 
   // ── Empty Inventory ───────────────────────────────────────────────────
@@ -187,19 +192,15 @@ describe('QuoteGenerator', () => {
     mockAllHooks({ inventory: [] });
     render(<QuoteGenerator />);
     expect(screen.getByText('Create New Quote')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Search customers...')).toBeInTheDocument();
+    expect(screen.getByText('Select a Customer...')).toBeInTheDocument();
   });
 
-  it('shows only placeholder in product select when inventory is empty', () => {
+  it('shows only placeholder in product select when inventory is empty', async () => {
     mockAllHooks({ inventory: [] });
     render(<QuoteGenerator />);
     fireEvent.click(screen.getByText('Add Item'));
-    const options = screen.getAllByRole('option');
-    const productOptions = options.filter(o =>
-      o.textContent?.includes('Premium Widget') ||
-      o.textContent?.includes('Ergonomic Gadget')
-    );
-    expect(productOptions).toHaveLength(0);
+    fireEvent.click(screen.getByText('Select Product...'));
+    expect(screen.getByText('No options found')).toBeInTheDocument();
   });
 
   // ── Calculations ──────────────────────────────────────────────────────
@@ -218,7 +219,7 @@ describe('QuoteGenerator', () => {
 
     await waitFor(() => {
       // The customer select should show the selected customer name
-      expect(screen.getByDisplayValue(/Acme Corp/)).toBeInTheDocument();
+      expect(screen.getByText(/Acme Corp/)).toBeInTheDocument();
     });
   });
 
@@ -228,12 +229,9 @@ describe('QuoteGenerator', () => {
     render(<QuoteGenerator />);
 
     await waitFor(() => {
-      // After loading, the items should be rendered and product selects visible
-      const productSelects = screen.getAllByRole('combobox').filter(s => {
-        const options = Array.from(s.querySelectorAll('option'));
-        return options.some(o => o.textContent?.includes('Premium Widget'));
-      });
-      expect(productSelects.length).toBeGreaterThanOrEqual(1);
+      // After loading, the items should be rendered
+      expect(screen.getByText('Premium Widget')).toBeInTheDocument();
+      expect(screen.getByText('Ergonomic Gadget')).toBeInTheDocument();
     });
   });
 

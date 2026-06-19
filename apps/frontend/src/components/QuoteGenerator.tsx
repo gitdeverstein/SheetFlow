@@ -8,6 +8,7 @@ import { Plus, Trash2, FileText, Check, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SkeletonLoader from './SkeletonLoader.js';
 import AnimatedSection from './AnimatedSection.js';
+import { Combobox } from './ui/Combobox.js';
 
 export default function QuoteGenerator() {
   const { createQuote, updateQuote, editingQuoteId, setEditingQuote } = useSheetStore();
@@ -20,8 +21,6 @@ export default function QuoteGenerator() {
   const [validUntil, setValidUntil] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [customerSearch, setCustomerSearch] = useState('');
-  const [productSearch, setProductSearch] = useState<string[]>([]);
   const [loadingQuote, setLoadingQuote] = useState(false);
 
   // Load quote data when editing
@@ -188,31 +187,17 @@ export default function QuoteGenerator() {
         {/* Input Form */}
         <form onSubmit={handleSubmit} className="lg:col-span-2 glass-panel p-6 rounded-2xl space-y-6">
           {/* Client Selection */}
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-300">Client / Customer</label>
-            <input
-              type="text"
-              placeholder="Search customers..."
-              value={customerSearch}
-              onChange={(e) => setCustomerSearch(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-slate-300 focus:outline-none focus:border-brand-500 mb-2"
-            />
-            <select
-              required
-              value={customerId}
-              onChange={(e) => { setCustomerId(e.target.value); setCustomerSearch(''); }}
-              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-300 focus:outline-none focus:border-brand-500"
-            >
-              <option value="">Select a Customer...</option>
-              {customers
-                .filter((c) => !customerSearch || c.name.toLowerCase().includes(customerSearch.toLowerCase()) || c.company?.toLowerCase().includes(customerSearch.toLowerCase()))
-                .map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} {c.company ? `(${c.company})` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Combobox
+            label="Client / Customer"
+            placeholder="Select a Customer..."
+            options={customers.map(c => ({
+              id: c.id!,
+              label: c.name,
+              subLabel: c.company || undefined
+            }))}
+            value={customerId}
+            onChange={(val) => setCustomerId(val)}
+          />
 
           {/* Line Items */}
           <div className="space-y-4">
@@ -246,33 +231,17 @@ export default function QuoteGenerator() {
                       className="grid grid-cols-12 gap-3 bg-slate-900/30 p-3 rounded-xl border border-slate-900"
                     >
                       {/* Product Selector */}
-                      <div className="col-span-12 sm:col-span-5 space-y-1">
-                        <input
-                          type="text"
-                          placeholder="Search products..."
-                          value={productSearch[index] || ''}
-                          onChange={(e) => {
-                            const copy = [...productSearch];
-                            copy[index] = e.target.value;
-                            setProductSearch(copy);
-                          }}
-                          className="w-full bg-slate-950 border border-slate-800/80 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-brand-500"
-                        />
-                        <select
-                          required
+                      <div className="col-span-12 sm:col-span-5">
+                        <Combobox
+                          placeholder="Select Product..."
+                          options={inventory.map(p => ({
+                            id: p.id!,
+                            label: p.name,
+                            subLabel: `${p.sku} • $${Number(p.price).toFixed(2)} • ${p.stock} in stock`
+                          }))}
                           value={item.productId}
-                          onChange={(e) => { handleProductChange(index, e.target.value); const copy = [...productSearch]; copy[index] = ''; setProductSearch(copy); }}
-                          className="w-full bg-slate-950 border border-slate-800/80 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-brand-500"
-                        >
-                          <option value="">Select Product...</option>
-                          {inventory
-                            .filter((p) => !productSearch[index] || p.name.toLowerCase().includes(productSearch[index].toLowerCase()) || p.sku.toLowerCase().includes(productSearch[index].toLowerCase()))
-                            .map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name} - ${Number(p.price).toFixed(2)} ({p.stock} left)
-                            </option>
-                          ))}
-                        </select>
+                          onChange={(val) => handleProductChange(index, val)}
+                        />
                       </div>
 
                       {/* Quantity */}

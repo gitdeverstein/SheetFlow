@@ -3,14 +3,21 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 // ── Shared mocks ──────────────────────────────────────────────────────────
 vi.mock('framer-motion', () => {
-  const C = ({ children, className, ...props }: any) => {
-    const safe = Object.fromEntries(
-      Object.entries(props).filter(([k]) => k !== 'animate' && k !== 'transition' && k !== 'initial' && k !== 'exit' && k !== 'variants' && k !== 'whileHover' && k !== 'whileTap')
-    );
-    return <div className={className} {...safe}>{children}</div>;
-  };
+  const motion = new Proxy({}, {
+    get: (_target, prop: string) => {
+      return ({ children, className, ...props }: any) => {
+        const safe = Object.fromEntries(
+          Object.entries(props).filter(([k]) =>
+            !['animate', 'transition', 'initial', 'exit', 'variants', 'whileHover', 'whileTap', 'layoutId', 'layout'].includes(k)
+          )
+        );
+        const Tag = prop as any;
+        return <Tag className={className} {...safe}>{children}</Tag>;
+      };
+    }
+  });
   return {
-    motion: new Proxy({}, { get: () => C }),
+    motion,
     AnimatePresence: ({ children }: any) => <>{children}</>,
   };
 });

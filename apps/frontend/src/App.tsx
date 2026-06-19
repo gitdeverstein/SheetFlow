@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useSheetStore } from './store/sheetStore.js';
 import { login, register, logout as apiLogout, checkAuth } from './store/api.js';
-import Dashboard from './components/Dashboard.js';
-import SpreadsheetGrid from './components/SpreadsheetGrid.js';
-import QuoteGenerator from './components/QuoteGenerator.js';
+const Dashboard = lazy(() => import('./components/Dashboard.js'));
+const SpreadsheetGrid = lazy(() => import('./components/SpreadsheetGrid.js'));
+const QuoteGenerator = lazy(() => import('./components/QuoteGenerator.js'));
 import WelcomeScreen from './components/WelcomeScreen.js';
 import ErrorBoundary from './components/ErrorBoundary.js';
 import AnimatedSection from './components/AnimatedSection.js';
@@ -102,6 +102,12 @@ function App() {
     );
   }
 
+  const loadingFallback = (
+    <div className="flex items-center justify-center h-64">
+      <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
   return (
     <ErrorBoundary>
     <div className="min-h-screen bg-dark-950 text-slate-100 flex flex-col font-sans">
@@ -109,7 +115,7 @@ function App() {
       <nav className="glass-panel border-b border-slate-800/80 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3" aria-label="SheetFlow Home">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-cyan-500 flex items-center justify-center font-display font-extrabold text-white text-lg tracking-wider shadow-md shadow-brand-500/20">
                 SF
               </div>
@@ -134,6 +140,7 @@ function App() {
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id as 'crm' | 'inventory' | 'quotes' | 'dashboard')}
+                      aria-current={isActive ? 'page' : undefined}
                       className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 relative group
                         ${isActive 
                           ? 'text-brand-400' 
@@ -160,6 +167,9 @@ function App() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setProfileOpen(!profileOpen)}
+                  aria-expanded={profileOpen}
+                  aria-haspopup="true"
+                  aria-label="User profile menu"
                   className="w-9 h-9 rounded-full bg-gradient-to-tr from-brand-600 to-cyan-500 flex items-center justify-center text-white font-semibold text-sm shadow-md shadow-brand-500/20 relative border border-slate-800/80 cursor-pointer focus:outline-none text-white-keep"
                 >
                   {user ? user.name.charAt(0).toUpperCase() + (user.name.split(' ')[1]?.[0] || '') : '?'}
@@ -239,12 +249,14 @@ function App() {
             exit={{ opacity: 0, y: -15 }}
             transition={{ duration: 0.2 }}
           >
-            <AnimatedSection key={`content-${activeTab}`}>
-              {activeTab === 'dashboard' && <Dashboard />}
-              {activeTab === 'crm' && <SpreadsheetGrid tab="crm" />}
-              {activeTab === 'inventory' && <SpreadsheetGrid tab="inventory" />}
-              {activeTab === 'quotes' && <QuoteGenerator />}
-            </AnimatedSection>
+            <Suspense fallback={loadingFallback}>
+              <AnimatedSection key={`content-${activeTab}`}>
+                {activeTab === 'dashboard' && <Dashboard />}
+                {activeTab === 'crm' && <SpreadsheetGrid tab="crm" />}
+                {activeTab === 'inventory' && <SpreadsheetGrid tab="inventory" />}
+                {activeTab === 'quotes' && <QuoteGenerator />}
+              </AnimatedSection>
+            </Suspense>
           </motion.div>
         </AnimatePresence>
       </main>
