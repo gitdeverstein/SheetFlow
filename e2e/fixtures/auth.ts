@@ -1,4 +1,4 @@
-import { type Page } from '@playwright/test';
+import { type Page, expect } from '@playwright/test';
 
 /** Test user credentials matching the seed data in packages/db/src/seed.ts */
 export const TEST_USERS = {
@@ -23,11 +23,11 @@ export async function login(page: Page, email: string, password: string): Promis
 
   await emailInput.fill(email);
   await page.locator('input[type="password"]').fill(password);
-  await page.getByRole('button', { name: /sign in|login|log in/i }).click();
+  // Scope to form to avoid strict mode violation with the Sign in tab button
+  await page.locator('form').getByRole('button', { name: /sign in|login|log in/i }).click();
 
-  // Wait for redirect to dashboard
-  await page.waitForURL(/dashboard/);
-  await page.waitForLoadState('networkidle');
+  // Wait for dashboard to load
+  await page.getByRole("heading", { name: /Real-time KPIs/i }).waitFor();
 }
 
 /**
