@@ -138,8 +138,11 @@ export default function WelcomeScreen({ isDarkMode, onToggleTheme, onSignIn, onS
         </div>
 
         {/* Tabs */}
-        <div className="flex rounded-xl bg-slate-900/70 p-1 mb-6 border border-slate-800/50">
+        <div className="flex rounded-xl bg-slate-900/70 p-1 mb-6 border border-slate-800/50" role="tablist">
           <button
+            role="tab"
+            aria-selected={tab === 'signin'}
+            aria-label="Sign in tab"
             onClick={() => switchTab('signin')}
             className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
               tab === 'signin'
@@ -150,6 +153,9 @@ export default function WelcomeScreen({ isDarkMode, onToggleTheme, onSignIn, onS
             Sign in
           </button>
           <button
+            role="tab"
+            aria-selected={tab === 'signup'}
+            aria-label="Sign up tab"
             onClick={() => switchTab('signup')}
             className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
               tab === 'signup'
@@ -211,6 +217,7 @@ export default function WelcomeScreen({ isDarkMode, onToggleTheme, onSignIn, onS
                 <motion.button
                   type="submit"
                   disabled={loading}
+                  aria-label="Sign in to your account"
                   whileHover={{ scale: loading ? 1 : 1.01 }}
                   whileTap={{ scale: loading ? 1 : 0.98 }}
                   className="w-full py-2.5 bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-cyan-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-brand-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
@@ -290,6 +297,7 @@ export default function WelcomeScreen({ isDarkMode, onToggleTheme, onSignIn, onS
                 <motion.button
                   type="submit"
                   disabled={loading}
+                  aria-label="Create your account"
                   whileHover={{ scale: loading ? 1 : 1.01 }}
                   whileTap={{ scale: loading ? 1 : 0.98 }}
                   className="w-full py-2.5 bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-cyan-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-brand-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
