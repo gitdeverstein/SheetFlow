@@ -161,6 +161,9 @@ function App() {
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setProfileOpen(!profileOpen)}
                   className="w-9 h-9 rounded-full bg-gradient-to-tr from-brand-600 to-cyan-500 flex items-center justify-center text-white font-semibold text-sm shadow-md shadow-brand-500/20 relative border border-slate-800/80 cursor-pointer focus:outline-none text-white-keep"
+                  aria-label="Open profile menu"
+                  aria-haspopup="true"
+                  aria-expanded={profileOpen}
                 >
                   {user ? user.name.charAt(0).toUpperCase() + (user.name.split(' ')[1]?.[0] || '') : '?'}
                   <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-slate-950 rounded-full" />
