@@ -102,7 +102,7 @@ export const createQuoteSlice: StateCreator<SheetStoreState, [], [], QuoteSlice>
     set({ generatingPdfId: id });
     try {
       const fullQuote = await fetchFullQuote(id);
-      exportQuotePdf(fullQuote);
+      await exportQuotePdf(fullQuote);
       get().addToast('PDF downloaded successfully');
     } catch (err: unknown) {
       get().addToast(err instanceof Error ? err.message : 'Failed to generate PDF', 'error');
