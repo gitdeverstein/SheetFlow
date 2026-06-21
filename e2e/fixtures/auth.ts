@@ -23,7 +23,8 @@ export async function login(page: Page, email: string, password: string): Promis
 
   await emailInput.fill(email);
   await page.locator('input[type="password"]').fill(password);
-  await page.getByRole('button', { name: /sign in|login|log in/i }).click();
+  // Using .last() or a more specific selector because of multiple "Sign in" buttons (tab vs submit)
+  await page.getByRole('button', { name: /sign in|login|log in/i }).filter({ hasText: /^Sign in$|^Login$|^Log in$/i }).last().click();
 
   // Wait for redirect to dashboard
   await page.waitForURL(/dashboard/);
