@@ -47,11 +47,30 @@
 *   **Problem:** Large PDF/Excel libraries bloated in initial bundle.
 *   **Impact:** Slow initial load and poor mobile performance.
 *   **Solution:** Use dynamic `import()` for `jspdf` and `exceljs` in `exportUtils.ts`.
+    ```typescript
+    // Example: apps/frontend/src/utils/exportUtils.ts
+    export async function exportQuotePdf(quote: ExportFullQuote) {
+      const { default: jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
+      const doc = new jsPDF();
+      // ... rest of the logic
+    }
+    ```
 *   **Estimated Effort:** 1h
 
 *   **Problem:** Missing ARIA labels and poor keyboard accessibility.
 *   **Impact:** Site is unusable for screen reader users and difficult for keyboard-only users.
 *   **Solution:** Global audit of icon buttons and focus management.
+    ```tsx
+    // Example: apps/frontend/src/components/Dashboard.tsx
+    <button
+      onClick={() => deleteQuote(quote.id)}
+      aria-label={`Delete quote ${quote.quoteNumber}`}
+      className="..."
+    >
+      <Trash2 size={15} />
+    </button>
+    ```
 *   **Estimated Effort:** 4h
 
 ## High Priority
@@ -64,6 +83,12 @@
 *   **Problem:** Lack of Code Splitting.
 *   **Impact:** All features loaded at once, increasing TTI.
 *   **Solution:** Implement `React.lazy` for `Dashboard`, `SpreadsheetGrid`, and `QuoteGenerator`.
+    ```tsx
+    // Example: apps/frontend/src/App.tsx
+    const Dashboard = React.lazy(() => import('./components/Dashboard'));
+    const SpreadsheetGrid = React.lazy(() => import('./components/SpreadsheetGrid'));
+    // ... use with <Suspense>
+    ```
 *   **Estimated Effort:** 2h
 
 ## Medium Priority
