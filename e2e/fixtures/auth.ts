@@ -23,7 +23,8 @@ export async function login(page: Page, email: string, password: string): Promis
 
   await emailInput.fill(email);
   await page.locator('input[type="password"]').fill(password);
-  await page.getByRole('button', { name: /sign in|login|log in/i }).click();
+  // Narrow the search to the submit button inside the form to avoid ambiguity with tab buttons
+  await page.locator('form').getByRole('button', { name: /sign in|login|log in/i }).click();
 
   // Wait for redirect to dashboard
   await page.waitForURL(/dashboard/);
