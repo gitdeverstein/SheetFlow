@@ -1,13 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useSheetStore } from './store/sheetStore.js';
 import { login, register, logout as apiLogout, checkAuth } from './store/api.js';
-import Dashboard from './components/Dashboard.js';
-import SpreadsheetGrid from './components/SpreadsheetGrid.js';
-import QuoteGenerator from './components/QuoteGenerator.js';
 import WelcomeScreen from './components/WelcomeScreen.js';
 import ErrorBoundary from './components/ErrorBoundary.js';
+import SkeletonLoader from './components/SkeletonLoader.js';
 import AnimatedSection from './components/AnimatedSection.js';
-import { LayoutDashboard, Users, Package, FilePlus, X, User, Settings, Sun, Moon, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Package, FilePlus, X, User, Settings, Sun, Moon, LogOut, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface UserInfo {
@@ -15,6 +13,10 @@ interface UserInfo {
   name: string;
   email: string;
 }
+
+const Dashboard = lazy(() => import('./components/Dashboard.js'));
+const SpreadsheetGrid = lazy(() => import('./components/SpreadsheetGrid.js'));
+const QuoteGenerator = lazy(() => import('./components/QuoteGenerator.js'));
 
 function App() {
   const { activeTab, setActiveTab, prefetchData, toasts, removeToast } = useSheetStore();
@@ -240,10 +242,20 @@ function App() {
             transition={{ duration: 0.2 }}
           >
             <AnimatedSection key={`content-${activeTab}`}>
-              {activeTab === 'dashboard' && <Dashboard />}
-              {activeTab === 'crm' && <SpreadsheetGrid tab="crm" />}
-              {activeTab === 'inventory' && <SpreadsheetGrid tab="inventory" />}
-              {activeTab === 'quotes' && <QuoteGenerator />}
+              <Suspense fallback={
+                <div className="space-y-8">
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="w-6 h-6 animate-spin text-brand-500" />
+                    <span className="text-slate-400 font-medium">Loading component...</span>
+                  </div>
+                  <SkeletonLoader variant="card" count={3} />
+                </div>
+              }>
+                {activeTab === 'dashboard' && <Dashboard />}
+                {activeTab === 'crm' && <SpreadsheetGrid tab="crm" />}
+                {activeTab === 'inventory' && <SpreadsheetGrid tab="inventory" />}
+                {activeTab === 'quotes' && <QuoteGenerator />}
+              </Suspense>
             </AnimatedSection>
           </motion.div>
         </AnimatePresence>
@@ -267,7 +279,7 @@ function App() {
             >
               <div className="flex-1">
                 <p className="text-xs font-semibold text-slate-400 capitalize">
-                  {toast.type === 'success' ? 'Succès' : toast.type}
+                  {toast.type === 'success' ? 'Success' : toast.type}
                 </p>
                 <p className="text-sm text-slate-200 mt-0.5">{toast.text}</p>
                 {toast.undoAction && (
