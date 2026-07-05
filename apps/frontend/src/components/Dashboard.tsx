@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { QUOTE_STATUS_TRANSITIONS } from '@sheetflow/shared';
 import AnimatedSection from './AnimatedSection.js';
 import SkeletonLoader from './SkeletonLoader.js';
+import Modal from './Modal.js';
 
 // ── SVG Donut Chart ──────────────────────────────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
@@ -164,6 +165,20 @@ export default function Dashboard() {
   const [animatedRevenue, setAnimatedRevenue] = useState(0);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    variant: 'danger' | 'info' | 'warning';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    variant: 'info',
+  });
+
   const totalCustomers = customers.length;
   const totalProducts = inventory.length;
   const lowStockAlerts = inventory.filter((item: { stock: unknown; alertThreshold: unknown }) => Number(item.stock) < Number(item.alertThreshold)).length;
@@ -280,9 +295,17 @@ export default function Dashboard() {
                             status={quote.status}
                             transitions={QUOTE_STATUS_TRANSITIONS[quote.status] ?? []}
                             onChange={(newStatus) => {
-                              if ((newStatus === 'Accepted' || quote.status === 'Accepted') &&
-                                !window.confirm(`Change status to "${newStatus}"? This will adjust inventory stock.`)) return;
-                              updateQuoteStatus(quote.id, newStatus);
+                              if (newStatus === 'Accepted' || quote.status === 'Accepted') {
+                                setModalConfig({
+                                  isOpen: true,
+                                  title: 'Change Quote Status',
+                                  message: `Change status to "${newStatus}"? This will adjust inventory stock.`,
+                                  onConfirm: () => updateQuoteStatus(quote.id, newStatus),
+                                  variant: 'warning',
+                                });
+                              } else {
+                                updateQuoteStatus(quote.id, newStatus);
+                              }
                             }}
                           />
                           <ExpiryBadge validUntil={quote.validUntil} status={quote.status} />
@@ -309,7 +332,15 @@ export default function Dashboard() {
                             {exportingExcelId === quote.id ? <Loader2 size={12} className="animate-spin" /> : <FileSpreadsheet size={12} />}
                             <span>XLS</span>
                           </button>
-                          <button onClick={() => { if (confirm('Delete this quote? Stock will be restored if accepted.')) deleteQuote(quote.id); }}
+                          <button onClick={() => {
+                            setModalConfig({
+                              isOpen: true,
+                              title: 'Delete Quote',
+                              message: 'Delete this quote? Stock will be restored if accepted.',
+                              onConfirm: () => deleteQuote(quote.id),
+                              variant: 'danger',
+                            });
+                          }}
                             className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors" title="Delete">
                             <Trash2 size={15} />
                           </button>
@@ -320,7 +351,15 @@ export default function Dashboard() {
                           <button onClick={() => handleDuplicate(quote.id)} className="w-full text-left px-3 py-2 text-xs text-violet-400 hover:bg-slate-800 flex items-center gap-2"><Copy size={13} /> Duplicate</button>
                           <button onClick={() => generatePdf(quote.id)} className="w-full text-left px-3 py-2 text-xs text-brand-400 hover:bg-slate-800 flex items-center gap-2"><Download size={13} /> Export PDF</button>
                           <button onClick={() => exportExcel(quote.id)} className="w-full text-left px-3 py-2 text-xs text-emerald-400 hover:bg-slate-800 flex items-center gap-2"><FileSpreadsheet size={13} /> Export Excel</button>
-                          <button onClick={() => { if (confirm('Delete this quote?')) deleteQuote(quote.id); }} className="w-full text-left px-3 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center gap-2"><Trash2 size={13} /> Delete</button>
+                          <button onClick={() => {
+                            setModalConfig({
+                              isOpen: true,
+                              title: 'Delete Quote',
+                              message: 'Delete this quote?',
+                              onConfirm: () => deleteQuote(quote.id),
+                              variant: 'danger',
+                            });
+                          }} className="w-full text-left px-3 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center gap-2"><Trash2 size={13} /> Delete</button>
                         </OverflowMenu>
                       </td>
                     </tr>
@@ -403,6 +442,16 @@ export default function Dashboard() {
           </AnimatedSection>
         </div>
       </div>
+
+      <Modal
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+        onConfirm={modalConfig.onConfirm}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        variant={modalConfig.variant}
+        confirmText={modalConfig.variant === 'danger' ? 'Delete' : 'Confirm'}
+      />
     </div>
   );
 }
