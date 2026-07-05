@@ -3,11 +3,12 @@ import { useSheetStore, buildCrmRow, buildInvRow } from '../store/sheetStore.js'
 import { useCustomers } from '../hooks/useCustomers.js';
 import { useInventory } from '../hooks/useInventory.js';
 import { Plus, Trash2, Save, ArrowUpDown, Search, AlertCircle, Upload, Loader2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { FixedSizeList as List } from 'react-window';
 import SkeletonLoader from './SkeletonLoader.js';
 import AnimatedSection from './AnimatedSection.js';
 import { useDebounce } from '../hooks/useDebounce.js';
+import Modal from './Modal.js';
 
 interface SpreadsheetGridProps {
   tab: 'crm' | 'inventory';
@@ -167,40 +168,24 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
       </div>
 
       {/* Delete Confirmation Modal */}
-      <AnimatePresence>
-        {deleteConfirm && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm"
-            onClick={() => setDeleteConfirm(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="glass-panel p-6 rounded-2xl max-w-sm w-full mx-4 border border-slate-800 shadow-2xl"
-            >
-              <h3 className="text-lg font-semibold text-white">Delete Record</h3>
-              <p className="text-sm text-slate-400 mt-2">This record will be deleted. You can undo within 4 seconds.</p>
-              <div className="flex justify-end gap-3 mt-6">
-                <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white bg-slate-900 border border-slate-800 rounded-xl transition-colors">
-                  Cancel
-                </button>
-                <button
-                  onClick={() => { const id = deleteConfirm; setDeleteConfirm(null); deleteSpreadsheetRow(tab, id); }}
-                  className="px-4 py-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Modal
+        isOpen={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => {
+          const id = deleteConfirm;
+          setDeleteConfirm(null);
+          if (id) deleteSpreadsheetRow(tab, id);
+        }}
+        title="Delete Record"
+        message="This record will be deleted. You can undo within 4 seconds."
+        confirmText="Delete"
+        variant="danger"
+      />
 
       {/* Spreadsheet Container */}
       <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
-        <div className="overflow-x-auto">
-          <div className="min-w-[800px]">
+        <div className="overflow-x-auto w-full">
+          <div className="min-w-[1000px] lg:min-w-full">
             {/* Column Headers */}
             <div className="grid border-b border-slate-800 bg-slate-900/40"
               style={{ gridTemplateColumns: `repeat(${columns.length}, 1fr) 100px` }}>
@@ -267,6 +252,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                     itemSize={48}
                     width="100%"
                     overscanCount={5}
+                    itemKey={(index) => paginatedRows[index].id}
                   >
                     {({ index, style }) => {
                       const row = paginatedRows[index];
