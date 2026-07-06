@@ -203,7 +203,7 @@ describe('Dashboard', () => {
     fireEvent.click(draftButtons[0]);
 
     // The Sent option should appear in the dropdown
-    const sentOption = await screen.findByRole('button', { name: /Sent/ });
+    const sentOption = await screen.findByRole('option', { name: /Sent/ });
     fireEvent.click(sentOption);
 
     await waitFor(() => {
