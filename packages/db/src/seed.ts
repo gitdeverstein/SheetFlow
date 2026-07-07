@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/sheetflow';
-const db = createDb(connectionString);
+const { db, client } = createDb(connectionString);
 
 async function main() {
   console.log('Seeding database...');
@@ -28,13 +28,13 @@ async function main() {
     const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'admin123!';
     const demoPassword = process.env.SEED_DEMO_PASSWORD || 'demo1234!';
     const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
-    const [adminUser] = await db.insert(users).values([{
+    await db.insert(users).values([{
       name: 'Admin',
       email: 'admin@sheetflow.com',
       passwordHash: adminPasswordHash,
     }]).returning();
 
-    const [demoUser] = await db.insert(users).values([{
+    await db.insert(users).values([{
       name: 'John Doe',
       email: 'john@sheetflow.com',
       passwordHash: await bcrypt.hash(demoPassword, 12),
@@ -49,7 +49,7 @@ async function main() {
     ]).returning();
 
     console.log('Inserting inventory...');
-    const [p1, p2, p3, p4, p5, p6] = await db.insert(inventory).values([
+    const [p1, p2, p3, p4, p5] = await db.insert(inventory).values([
       { sku: 'WGT-001', name: 'Premium Widget (Gold)', stock: 45, alertThreshold: 10, price: '149.99' },
       { sku: 'WGT-002', name: 'Premium Widget (Silver)', stock: 120, alertThreshold: 20, price: '89.99' },
       { sku: 'GDT-001', name: 'Ergonomic Gadget (Standard)', stock: 8, alertThreshold: 15, price: '249.50' },
@@ -90,10 +90,11 @@ async function main() {
     console.log('Database seeded successfully!');
     console.log(`  Admin user: admin@sheetflow.com / admin123!`);
     console.log(`  Demo user:  john@sheetflow.com / demo1234!`);
-    process.exit(0);
   } catch (error) {
     console.error('Error seeding database:', error);
     process.exit(1);
+  } finally {
+    await client.end();
   }
 }
 
