@@ -70,7 +70,7 @@ export default function Navbar({
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
+                    onClick={() => setActiveTab(tab.id as 'crm' | 'inventory' | 'quotes' | 'dashboard')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 relative group
                       ${isActive ? 'text-brand-400' : 'text-slate-400 hover:text-slate-200'}
                     `}

@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useSheetStore } from './store/sheetStore.js';
-import { login, register, logout as apiLogout, checkAuth } from './store/api.js';
+import { login, register, checkAuth } from './store/api.js';
 import Dashboard from './components/Dashboard.js';
 import SpreadsheetGrid from './components/SpreadsheetGrid.js';
 import QuoteGenerator from './components/QuoteGenerator.js';

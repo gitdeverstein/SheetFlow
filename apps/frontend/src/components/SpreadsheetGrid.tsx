@@ -3,7 +3,7 @@ import { useSheetStore, buildCrmRow, buildInvRow } from '../store/sheetStore.js'
 import { useCustomers } from '../hooks/useCustomers.js';
 import { useInventory } from '../hooks/useInventory.js';
 import { Plus, Trash2, Save, ArrowUpDown, Search, AlertCircle, Upload, Loader2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { FixedSizeList as List } from 'react-window';
 import SkeletonLoader from './SkeletonLoader.js';
 import AnimatedSection from './AnimatedSection.js';
