@@ -192,8 +192,6 @@ describe('Dashboard', () => {
         { id: 'q1', quoteNumber: 'QT-001', customerName: 'Acme', status: 'Draft', total: '100', customerId: 'c1' },
       ],
     });
-    const originalConfirm = window.confirm;
-    window.confirm = vi.fn(() => true);
 
     render(<Dashboard />);
 
@@ -209,8 +207,6 @@ describe('Dashboard', () => {
     await waitFor(() => {
       expect(updateQuoteStatus).toHaveBeenCalledWith('q1', 'Sent');
     });
-
-    window.confirm = originalConfirm;
   });
 
   // ── ExpiryBadge ────────────────────────────────────────────────────────
@@ -244,20 +240,20 @@ describe('Dashboard', () => {
     expect(defaultStore.setActiveTab).toHaveBeenCalledWith('quotes');
   });
 
-  it('renders delete button and calls deleteQuote after confirm', () => {
+  it('renders delete button and calls deleteQuote after confirm', async () => {
     const deleteQuote = vi.fn().mockResolvedValue(undefined);
     mockAllHooks({ store: { deleteQuote } });
     render(<Dashboard />);
     const deleteButtons = screen.getAllByRole('button').filter(b => b.getAttribute('title') === 'Delete');
     expect(deleteButtons.length).toBeGreaterThanOrEqual(1);
 
-    const originalConfirm = window.confirm;
-    window.confirm = vi.fn(() => true);
-
     fireEvent.click(deleteButtons[0]);
-    expect(deleteQuote).toHaveBeenCalled();
 
-    window.confirm = originalConfirm;
+    // Should show custom Modal now, not window.confirm
+    const confirmButton = await screen.findByRole('button', { name: 'Confirm' });
+    fireEvent.click(confirmButton);
+
+    expect(deleteQuote).toHaveBeenCalledWith('q1');
   });
 
   // ── Low Stock Watchlist ────────────────────────────────────────────────

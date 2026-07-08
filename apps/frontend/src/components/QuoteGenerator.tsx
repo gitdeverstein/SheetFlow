@@ -309,6 +309,7 @@ export default function QuoteGenerator() {
                           whileHover={{ scale: 1.2, backgroundColor: 'rgba(244, 63, 94, 0.1)' }}
                           whileTap={{ scale: 0.8 }}
                           className="p-2 text-rose-500 rounded-lg transition-colors"
+                          aria-label="Remove item"
                         >
                           <Trash2 size={16} />
                         </motion.button>
@@ -398,7 +399,7 @@ export default function QuoteGenerator() {
                 className="flex items-center gap-2"
               >
                 <Check size={18} />
-                <span>Enregistré !</span>
+                <span>Saved!</span>
               </motion.div>
             ) : (
               <motion.div 
