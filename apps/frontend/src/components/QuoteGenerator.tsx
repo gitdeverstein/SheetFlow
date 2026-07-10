@@ -398,7 +398,7 @@ export default function QuoteGenerator() {
                 className="flex items-center gap-2"
               >
                 <Check size={18} />
-                <span>Enregistré !</span>
+                <span>Saved!</span>
               </motion.div>
             ) : (
               <motion.div 
