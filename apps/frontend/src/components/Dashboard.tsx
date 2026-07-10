@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { QUOTE_STATUS_TRANSITIONS } from '@sheetflow/shared';
 import AnimatedSection from './AnimatedSection.js';
 import SkeletonLoader from './SkeletonLoader.js';
+import Modal from './Modal.js';
 
 // ── SVG Donut Chart ──────────────────────────────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
@@ -156,6 +157,19 @@ export default function Dashboard() {
   } = useSheetStore();
 
   const { data: customers = [], isLoading: customersLoading } = useCustomers();
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    variant?: 'danger' | 'info';
+    confirmLabel?: string;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
   const { data: inventory = [], isLoading: inventoryLoading } = useInventory();
   const { data: quotes = [], isLoading: quotesLoading } = useQuotes();
 
@@ -280,8 +294,17 @@ export default function Dashboard() {
                             status={quote.status}
                             transitions={QUOTE_STATUS_TRANSITIONS[quote.status] ?? []}
                             onChange={(newStatus) => {
-                              if ((newStatus === 'Accepted' || quote.status === 'Accepted') &&
-                                !window.confirm(`Change status to "${newStatus}"? This will adjust inventory stock.`)) return;
+                              if (newStatus === 'Accepted' || quote.status === 'Accepted') {
+                                setModalConfig({
+                                  isOpen: true,
+                                  title: 'Change Status',
+                                  message: `Change status to "${newStatus}"? This will adjust inventory stock.`,
+                                  onConfirm: () => updateQuoteStatus(quote.id, newStatus),
+                                  confirmLabel: 'Confirm',
+                                  variant: 'info',
+                                });
+                                return;
+                              }
                               updateQuoteStatus(quote.id, newStatus);
                             }}
                           />
@@ -292,25 +315,34 @@ export default function Dashboard() {
                         {/* Desktop actions */}
                         <div className="hidden sm:flex items-center justify-center gap-1.5 flex-wrap">
                           <button onClick={() => { setEditingQuote(quote.id); setActiveTab('quotes'); }}
-                            className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors" title="Edit">
+                            className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors" title="Edit" aria-label="Edit quote">
                             <Edit3 size={15} />
                           </button>
                           <button onClick={() => handleDuplicate(quote.id)} disabled={duplicatingId === quote.id}
-                            className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors disabled:opacity-50" title="Duplicate as Draft">
+                            className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors disabled:opacity-50" title="Duplicate as Draft" aria-label="Duplicate quote">
                             {duplicatingId === quote.id ? <Loader2 size={15} className="animate-spin" /> : <Copy size={15} />}
                           </button>
                           <button onClick={() => generatePdf(quote.id)} disabled={generatingPdfId === quote.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-brand-500 hover:bg-brand-600 text-white transition-colors disabled:opacity-50">
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-brand-500 hover:bg-brand-600 text-white transition-colors disabled:opacity-50" aria-label="Export quote as PDF">
                             {generatingPdfId === quote.id ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
                             <span>PDF</span>
                           </button>
                           <button onClick={() => exportExcel(quote.id)} disabled={exportingExcelId === quote.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50">
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50" aria-label="Export quote as Excel">
                             {exportingExcelId === quote.id ? <Loader2 size={12} className="animate-spin" /> : <FileSpreadsheet size={12} />}
                             <span>XLS</span>
                           </button>
-                          <button onClick={() => { if (confirm('Delete this quote? Stock will be restored if accepted.')) deleteQuote(quote.id); }}
-                            className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors" title="Delete">
+                          <button onClick={() => {
+                            setModalConfig({
+                              isOpen: true,
+                              title: 'Delete Quote',
+                              message: 'Delete this quote? Stock will be restored if accepted.',
+                              onConfirm: () => deleteQuote(quote.id),
+                              confirmLabel: 'Delete',
+                              variant: 'danger'
+                            });
+                          }}
+                            className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors" title="Delete" aria-label="Delete quote">
                             <Trash2 size={15} />
                           </button>
                         </div>
@@ -320,7 +352,16 @@ export default function Dashboard() {
                           <button onClick={() => handleDuplicate(quote.id)} className="w-full text-left px-3 py-2 text-xs text-violet-400 hover:bg-slate-800 flex items-center gap-2"><Copy size={13} /> Duplicate</button>
                           <button onClick={() => generatePdf(quote.id)} className="w-full text-left px-3 py-2 text-xs text-brand-400 hover:bg-slate-800 flex items-center gap-2"><Download size={13} /> Export PDF</button>
                           <button onClick={() => exportExcel(quote.id)} className="w-full text-left px-3 py-2 text-xs text-emerald-400 hover:bg-slate-800 flex items-center gap-2"><FileSpreadsheet size={13} /> Export Excel</button>
-                          <button onClick={() => { if (confirm('Delete this quote?')) deleteQuote(quote.id); }} className="w-full text-left px-3 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center gap-2"><Trash2 size={13} /> Delete</button>
+                          <button onClick={() => {
+                            setModalConfig({
+                              isOpen: true,
+                              title: 'Delete Quote',
+                              message: 'Delete this quote? Stock will be restored if accepted.',
+                              onConfirm: () => deleteQuote(quote.id),
+                              confirmLabel: 'Delete',
+                              variant: 'danger'
+                            });
+                          }} className="w-full text-left px-3 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center gap-2"><Trash2 size={13} /> Delete</button>
                         </OverflowMenu>
                       </td>
                     </tr>
@@ -403,6 +444,16 @@ export default function Dashboard() {
           </AnimatedSection>
         </div>
       </div>
+
+      <Modal
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+        onConfirm={modalConfig.onConfirm}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        confirmLabel={modalConfig.confirmLabel}
+        variant={modalConfig.variant}
+      />
     </div>
   );
 }
