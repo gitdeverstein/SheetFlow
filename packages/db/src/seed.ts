@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/sheetflow';
-const db = createDb(connectionString);
+const { db, client } = createDb(connectionString);
 
 async function main() {
   console.log('Seeding database...');
@@ -28,13 +28,13 @@ async function main() {
     const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'admin123!';
     const demoPassword = process.env.SEED_DEMO_PASSWORD || 'demo1234!';
     const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
-    const [adminUser] = await db.insert(users).values([{
+    await db.insert(users).values([{
       name: 'Admin',
       email: 'admin@sheetflow.com',
       passwordHash: adminPasswordHash,
     }]).returning();
 
-    const [demoUser] = await db.insert(users).values([{
+    await db.insert(users).values([{
       name: 'John Doe',
       email: 'john@sheetflow.com',
       passwordHash: await bcrypt.hash(demoPassword, 12),
@@ -90,11 +90,12 @@ async function main() {
     console.log('Database seeded successfully!');
     console.log(`  Admin user: admin@sheetflow.com / admin123!`);
     console.log(`  Demo user:  john@sheetflow.com / demo1234!`);
-    process.exit(0);
-  } catch (error) {
-    console.error('Error seeding database:', error);
-    process.exit(1);
+  } finally {
+    await client.end();
   }
 }
 
-main();
+main().catch((error) => {
+  console.error('Error seeding database:', error);
+  process.exit(1);
+});
