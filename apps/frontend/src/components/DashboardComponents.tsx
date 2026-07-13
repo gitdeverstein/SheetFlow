@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
+import { MoreHorizontal } from 'lucide-react';
 
 const STATUS_COLORS: Record<string, string> = {
   Draft: '#64748b',
@@ -97,8 +98,6 @@ export function DonutChart({ data }: { data: Record<string, number> }) {
     </div>
   );
 }
-
-import { MoreHorizontal } from 'lucide-react';
 
 export function OverflowMenu({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
