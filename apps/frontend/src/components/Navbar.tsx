@@ -1,12 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Sun, Moon, Settings, LogOut, LayoutDashboard, Users, Package, FilePlus } from 'lucide-react';
 import { useRef, useEffect } from 'react';
-
-interface UserInfo {
-  id: string;
-  name: string;
-  email: string;
-}
+import { type UserInfo } from '../App.js';
 
 interface NavbarProps {
   user: UserInfo | null;
