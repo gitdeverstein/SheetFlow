@@ -58,7 +58,7 @@ body {
 }
 
 .light :is(.text-white, .hover\:text-white:hover):not(button):not([type="button"]):not([type="submit"]):not(.text-white-keep):not(.text-white-icon) {
-  color: #020617 !important;
+  color: var(--color-dark-950);
 }
 
 .donut-label {
