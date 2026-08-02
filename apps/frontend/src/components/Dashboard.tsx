@@ -3,7 +3,19 @@ import { useSheetStore } from '../store/sheetStore.js';
 import { useCustomers } from '../hooks/useCustomers.js';
 import { useInventory } from '../hooks/useInventory.js';
 import { useQuotes } from '../hooks/useQuotes.js';
-import { Users, Package, FileText, AlertTriangle, Download, FileSpreadsheet, Loader2, Trash2, Edit3, Copy, MoreHorizontal } from 'lucide-react';
+import {
+  Users,
+  Package,
+  FileText,
+  AlertTriangle,
+  Download,
+  FileSpreadsheet,
+  Loader2,
+  Trash2,
+  Edit3,
+  Copy,
+  MoreHorizontal,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QUOTE_STATUS_TRANSITIONS } from '@sheetflow/shared';
 import AnimatedSection from './AnimatedSection.js';
@@ -41,7 +53,9 @@ function DonutChart({ data }: { data: Record<string, number> }) {
         {slices.map((s) => (
           <circle
             key={s.status}
-            cx={cx} cy={cy} r={r}
+            cx={cx}
+            cy={cy}
+            r={r}
             fill="none"
             stroke={s.color}
             strokeWidth="18"
@@ -50,7 +64,17 @@ function DonutChart({ data }: { data: Record<string, number> }) {
             style={{ transform: 'rotate(-90deg)', transformOrigin: '60px 60px' }}
           />
         ))}
-        <text x={cx} y={cy + 5} textAnchor="middle" fill="currentColor" className="donut-label" fontSize="14" fontWeight="bold">{total}</text>
+        <text
+          x={cx}
+          y={cy + 5}
+          textAnchor="middle"
+          fill="currentColor"
+          className="donut-label"
+          fontSize="14"
+          fontWeight="bold"
+        >
+          {total}
+        </text>
       </svg>
       <div className="space-y-1.5">
         {slices.map((s) => (
@@ -67,38 +91,62 @@ function DonutChart({ data }: { data: Record<string, number> }) {
 
 // ── Status pill ──────────────────────────────────────────────────────────────
 const STATUS_PILL: Record<string, string> = {
-  Draft:    'bg-slate-700/60 text-slate-300 border-slate-600/50',
-  Sent:     'bg-blue-500/15 text-blue-300 border-blue-500/30',
+  Draft: 'bg-slate-700/60 text-slate-300 border-slate-600/50',
+  Sent: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
   Accepted: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
   Rejected: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
 };
 
-function StatusPill({ status, transitions, onChange }: { status: string; transitions: readonly string[]; onChange: (s: string) => void }) {
+function StatusPill({
+  status,
+  transitions,
+  onChange,
+}: {
+  status: string;
+  transitions: readonly string[];
+  onChange: (s: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
   return (
     <div ref={ref} className="relative inline-block">
       <button
-        onClick={() => transitions.length > 0 && setOpen(o => !o)}
+        onClick={() => transitions.length > 0 && setOpen((o) => !o)}
         className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full border transition-colors ${STATUS_PILL[status] ?? 'bg-slate-700 text-slate-300 border-slate-600'} ${transitions.length > 0 ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
       >
-        <span className={`w-1.5 h-1.5 rounded-full ${STATUS_COLORS[status] ? '' : 'bg-slate-400'}`} style={{ backgroundColor: STATUS_COLORS[status] }} />
+        <span
+          className={`w-1.5 h-1.5 rounded-full ${STATUS_COLORS[status] ? '' : 'bg-slate-400'}`}
+          style={{ backgroundColor: STATUS_COLORS[status] }}
+        />
         {status}
         {transitions.length > 0 && <span className="opacity-60">▾</span>}
       </button>
       <AnimatePresence>
         {open && (
-          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-            className="absolute left-0 top-full mt-1 z-30 bg-slate-900 border border-slate-700 rounded-xl shadow-xl min-w-[110px] overflow-hidden">
-            {transitions.map(s => (
-              <button key={s} onClick={() => { onChange(s); setOpen(false); }}
-                className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-slate-800 transition-colors flex items-center gap-2 ${STATUS_PILL[s] ? 'text-slate-200' : 'text-slate-300'}`}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[s] }} />{s}
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            className="absolute left-0 top-full mt-1 z-30 bg-slate-900 border border-slate-700 rounded-xl shadow-xl min-w-[110px] overflow-hidden"
+          >
+            {transitions.map((s) => (
+              <button
+                key={s}
+                onClick={() => {
+                  onChange(s);
+                  setOpen(false);
+                }}
+                className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-slate-800 transition-colors flex items-center gap-2 ${STATUS_PILL[s] ? 'text-slate-200' : 'text-slate-300'}`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[s] }} />
+                {s}
               </button>
             ))}
           </motion.div>
@@ -113,20 +161,29 @@ function OverflowMenu({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
   return (
     <div ref={ref} className="relative sm:hidden">
-      <button onClick={() => setOpen(o => !o)} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+      >
         <MoreHorizontal size={16} />
       </button>
       <AnimatePresence>
         {open && (
-          <motion.div initial={{ opacity: 0, scale: 0.95, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -4 }}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -4 }}
             className="absolute right-0 top-full mt-1 z-30 bg-slate-900 border border-slate-700 rounded-xl shadow-xl min-w-[140px] overflow-hidden"
-            onClick={() => setOpen(false)}>
+            onClick={() => setOpen(false)}
+          >
             {children}
           </motion.div>
         )}
@@ -148,11 +205,15 @@ function ExpiryBadge({ validUntil, status }: { validUntil?: string | null; statu
 // ── Dashboard ────────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const {
-    generatePdf, generatingPdfId,
-    exportExcel, exportingExcelId,
-    updateQuoteStatus, deleteQuote,
+    generatePdf,
+    generatingPdfId,
+    exportExcel,
+    exportingExcelId,
+    updateQuoteStatus,
+    deleteQuote,
     duplicateQuote,
-    setEditingQuote, setActiveTab,
+    setEditingQuote,
+    setActiveTab,
   } = useSheetStore();
 
   const { data: customers = [], isLoading: customersLoading } = useCustomers();
@@ -166,7 +227,9 @@ export default function Dashboard() {
 
   const totalCustomers = customers.length;
   const totalProducts = inventory.length;
-  const lowStockAlerts = inventory.filter((item: { stock: unknown; alertThreshold: unknown }) => Number(item.stock) < Number(item.alertThreshold)).length;
+  const lowStockAlerts = inventory.filter(
+    (item: { stock: unknown; alertThreshold: unknown }) => Number(item.stock) < Number(item.alertThreshold),
+  ).length;
 
   // Quote status counts for donut chart
   const statusCounts = useMemo(() => {
@@ -183,24 +246,30 @@ export default function Dashboard() {
   }, [quotes]);
 
   const revenue = useMemo(
-    () => quotes
-      .filter((q: { status: string }) => q.status === 'Accepted')
-      .reduce((sum: number, q: { total: string }) => sum + parseFloat(q.total), 0),
-    [quotes]
+    () =>
+      quotes
+        .filter((q: { status: string }) => q.status === 'Accepted')
+        .reduce((sum: number, q: { total: string }) => sum + parseFloat(q.total), 0),
+    [quotes],
   );
 
   useEffect(() => {
     let start = 0;
     const end = revenue;
-    if (end === 0) { setAnimatedRevenue(0); return; } // eslint-disable-line react-hooks/set-state-in-effect
+    if (end === 0) {
+      setAnimatedRevenue(0);
+      return;
+    } // eslint-disable-line react-hooks/set-state-in-effect
     const duration = 400;
     const stepTime = 16;
     const steps = duration / stepTime;
     const increment = end / steps;
     const timer = setInterval(() => {
       start += increment;
-      if (start >= end) { setAnimatedRevenue(end); clearInterval(timer); }
-      else setAnimatedRevenue(Math.floor(start));
+      if (start >= end) {
+        setAnimatedRevenue(end);
+        clearInterval(timer);
+      } else setAnimatedRevenue(Math.floor(start));
     }, stepTime);
     return () => clearInterval(timer);
   }, [revenue]);
@@ -219,17 +288,45 @@ export default function Dashboard() {
       </motion.div>
 
       {/* KPI Cards */}
-      {isLoading ? <SkeletonLoader variant="card" count={4} /> : (
+      {isLoading ? (
+        <SkeletonLoader variant="card" count={4} />
+      ) : (
         <motion.div
           variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } }}
-          initial="hidden" animate="show"
+          initial="hidden"
+          animate="show"
           className="grid grid-cols-1 md:grid-cols-4 gap-6"
         >
           {[
-            { label: 'Accepted Revenue', value: `$${animatedRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, sub: 'Real-time pipeline', color: 'emerald', icon: <FileText size={20} /> },
-            { label: 'Total Customers', value: totalCustomers, sub: 'Active CRM profiles', color: 'brand', icon: <Users size={20} /> },
-            { label: 'Catalog Products', value: totalProducts, sub: 'Unique SKUs tracked', color: 'purple', icon: <Package size={20} /> },
-            { label: 'Stock Alerts', value: lowStockAlerts, sub: 'Items below threshold', color: 'amber', icon: <AlertTriangle size={20} />, warn: lowStockAlerts > 0 },
+            {
+              label: 'Accepted Revenue',
+              value: `$${animatedRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+              sub: 'Real-time pipeline',
+              color: 'emerald',
+              icon: <FileText size={20} />,
+            },
+            {
+              label: 'Total Customers',
+              value: totalCustomers,
+              sub: 'Active CRM profiles',
+              color: 'brand',
+              icon: <Users size={20} />,
+            },
+            {
+              label: 'Catalog Products',
+              value: totalProducts,
+              sub: 'Unique SKUs tracked',
+              color: 'purple',
+              icon: <Package size={20} />,
+            },
+            {
+              label: 'Stock Alerts',
+              value: lowStockAlerts,
+              sub: 'Items below threshold',
+              color: 'amber',
+              icon: <AlertTriangle size={20} />,
+              warn: lowStockAlerts > 0,
+            },
           ].map((card, i) => (
             <AnimatedSection key={card.label} delay={i * 0.1}>
               <motion.div
@@ -241,7 +338,9 @@ export default function Dashboard() {
                   <div className={`p-2 bg-${card.color}-500/10 text-${card.color}-400 rounded-lg`}>{card.icon}</div>
                 </div>
                 <div className="mt-4">
-                  <span className={`text-3xl font-display font-bold ${card.warn ? 'text-amber-400' : 'text-white'}`}>{card.value}</span>
+                  <span className={`text-3xl font-display font-bold ${card.warn ? 'text-amber-400' : 'text-white'}`}>
+                    {card.value}
+                  </span>
                   <p className={`text-xs mt-1 ${i === 0 ? 'text-emerald-400' : 'text-slate-400'}`}>{card.sub}</p>
                 </div>
               </motion.div>
@@ -268,63 +367,149 @@ export default function Dashboard() {
                 </thead>
                 <tbody className="divide-y divide-slate-800/50 text-sm">
                   {quotes.length === 0 ? (
-                    <tr><td colSpan={5} className="py-6 text-center text-slate-500">No quotes generated yet.</td></tr>
-                  ) : quotes.map((quote: { id: string; quoteNumber: string; customerName: string; total: string; status: string; validUntil?: string | null }) => (
-                    <tr key={quote.id} className="hover:bg-slate-900/30 transition-colors">
-                      <td className="py-3.5 font-medium text-white">{quote.quoteNumber}</td>
-                      <td className="py-3.5 text-slate-300">{quote.customerName}</td>
-                      <td className="py-3.5 text-right text-slate-300 font-mono">${parseFloat(quote.total).toFixed(2)}</td>
-                      <td className="py-3.5 text-center">
-                        <div className="flex items-center justify-center gap-1 flex-wrap">
-                          <StatusPill
-                            status={quote.status}
-                            transitions={QUOTE_STATUS_TRANSITIONS[quote.status] ?? []}
-                            onChange={(newStatus) => {
-                              if ((newStatus === 'Accepted' || quote.status === 'Accepted') &&
-                                !window.confirm(`Change status to "${newStatus}"? This will adjust inventory stock.`)) return;
-                              updateQuoteStatus(quote.id, newStatus);
-                            }}
-                          />
-                          <ExpiryBadge validUntil={quote.validUntil} status={quote.status} />
-                        </div>
-                      </td>
-                      <td className="py-3.5">
-                        {/* Desktop actions */}
-                        <div className="hidden sm:flex items-center justify-center gap-1.5 flex-wrap">
-                          <button onClick={() => { setEditingQuote(quote.id); setActiveTab('quotes'); }}
-                            className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors" title="Edit">
-                            <Edit3 size={15} />
-                          </button>
-                          <button onClick={() => handleDuplicate(quote.id)} disabled={duplicatingId === quote.id}
-                            className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors disabled:opacity-50" title="Duplicate as Draft">
-                            {duplicatingId === quote.id ? <Loader2 size={15} className="animate-spin" /> : <Copy size={15} />}
-                          </button>
-                          <button onClick={() => generatePdf(quote.id)} disabled={generatingPdfId === quote.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-brand-500 hover:bg-brand-600 text-white transition-colors disabled:opacity-50">
-                            {generatingPdfId === quote.id ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-                            <span>PDF</span>
-                          </button>
-                          <button onClick={() => exportExcel(quote.id)} disabled={exportingExcelId === quote.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50">
-                            {exportingExcelId === quote.id ? <Loader2 size={12} className="animate-spin" /> : <FileSpreadsheet size={12} />}
-                            <span>XLS</span>
-                          </button>
-                          <button onClick={() => { if (confirm('Delete this quote? Stock will be restored if accepted.')) deleteQuote(quote.id); }}
-                            className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors" title="Delete">
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                        {/* Mobile overflow menu */}
-                        <OverflowMenu>
-                          <button onClick={() => { setEditingQuote(quote.id); setActiveTab('quotes'); }} className="w-full text-left px-3 py-2 text-xs text-cyan-400 hover:bg-slate-800 flex items-center gap-2"><Edit3 size={13} /> Edit</button>
-                          <button onClick={() => handleDuplicate(quote.id)} className="w-full text-left px-3 py-2 text-xs text-violet-400 hover:bg-slate-800 flex items-center gap-2"><Copy size={13} /> Duplicate</button>
-                          <button onClick={() => generatePdf(quote.id)} className="w-full text-left px-3 py-2 text-xs text-brand-400 hover:bg-slate-800 flex items-center gap-2"><Download size={13} /> Export PDF</button>
-                          <button onClick={() => exportExcel(quote.id)} className="w-full text-left px-3 py-2 text-xs text-emerald-400 hover:bg-slate-800 flex items-center gap-2"><FileSpreadsheet size={13} /> Export Excel</button>
-                          <button onClick={() => { if (confirm('Delete this quote?')) deleteQuote(quote.id); }} className="w-full text-left px-3 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center gap-2"><Trash2 size={13} /> Delete</button>
-                        </OverflowMenu>
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-slate-500">
+                        No quotes generated yet.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    quotes.map(
+                      (quote: {
+                        id: string;
+                        quoteNumber: string;
+                        customerName: string;
+                        total: string;
+                        status: string;
+                        validUntil?: string | null;
+                      }) => (
+                        <tr key={quote.id} className="hover:bg-slate-900/30 transition-colors">
+                          <td className="py-3.5 font-medium text-white">{quote.quoteNumber}</td>
+                          <td className="py-3.5 text-slate-300">{quote.customerName}</td>
+                          <td className="py-3.5 text-right text-slate-300 font-mono">
+                            ${parseFloat(quote.total).toFixed(2)}
+                          </td>
+                          <td className="py-3.5 text-center">
+                            <div className="flex items-center justify-center gap-1 flex-wrap">
+                              <StatusPill
+                                status={quote.status}
+                                transitions={QUOTE_STATUS_TRANSITIONS[quote.status] ?? []}
+                                onChange={(newStatus) => {
+                                  if (
+                                    (newStatus === 'Accepted' || quote.status === 'Accepted') &&
+                                    !window.confirm(
+                                      `Change status to "${newStatus}"? This will adjust inventory stock.`,
+                                    )
+                                  )
+                                    return;
+                                  updateQuoteStatus(quote.id, newStatus);
+                                }}
+                              />
+                              <ExpiryBadge validUntil={quote.validUntil} status={quote.status} />
+                            </div>
+                          </td>
+                          <td className="py-3.5">
+                            {/* Desktop actions */}
+                            <div className="hidden sm:flex items-center justify-center gap-1.5 flex-wrap">
+                              <button
+                                onClick={() => {
+                                  setEditingQuote(quote.id);
+                                  setActiveTab('quotes');
+                                }}
+                                className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors"
+                                title="Edit"
+                              >
+                                <Edit3 size={15} />
+                              </button>
+                              <button
+                                onClick={() => handleDuplicate(quote.id)}
+                                disabled={duplicatingId === quote.id}
+                                className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors disabled:opacity-50"
+                                title="Duplicate as Draft"
+                              >
+                                {duplicatingId === quote.id ? (
+                                  <Loader2 size={15} className="animate-spin" />
+                                ) : (
+                                  <Copy size={15} />
+                                )}
+                              </button>
+                              <button
+                                onClick={() => generatePdf(quote.id)}
+                                disabled={generatingPdfId === quote.id}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-brand-500 hover:bg-brand-600 text-white transition-colors disabled:opacity-50"
+                              >
+                                {generatingPdfId === quote.id ? (
+                                  <Loader2 size={12} className="animate-spin" />
+                                ) : (
+                                  <Download size={12} />
+                                )}
+                                <span>PDF</span>
+                              </button>
+                              <button
+                                onClick={() => exportExcel(quote.id)}
+                                disabled={exportingExcelId === quote.id}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50"
+                              >
+                                {exportingExcelId === quote.id ? (
+                                  <Loader2 size={12} className="animate-spin" />
+                                ) : (
+                                  <FileSpreadsheet size={12} />
+                                )}
+                                <span>XLS</span>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (confirm('Delete this quote? Stock will be restored if accepted.'))
+                                    deleteQuote(quote.id);
+                                }}
+                                className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                            {/* Mobile overflow menu */}
+                            <OverflowMenu>
+                              <button
+                                onClick={() => {
+                                  setEditingQuote(quote.id);
+                                  setActiveTab('quotes');
+                                }}
+                                className="w-full text-left px-3 py-2 text-xs text-cyan-400 hover:bg-slate-800 flex items-center gap-2"
+                              >
+                                <Edit3 size={13} /> Edit
+                              </button>
+                              <button
+                                onClick={() => handleDuplicate(quote.id)}
+                                className="w-full text-left px-3 py-2 text-xs text-violet-400 hover:bg-slate-800 flex items-center gap-2"
+                              >
+                                <Copy size={13} /> Duplicate
+                              </button>
+                              <button
+                                onClick={() => generatePdf(quote.id)}
+                                className="w-full text-left px-3 py-2 text-xs text-brand-400 hover:bg-slate-800 flex items-center gap-2"
+                              >
+                                <Download size={13} /> Export PDF
+                              </button>
+                              <button
+                                onClick={() => exportExcel(quote.id)}
+                                className="w-full text-left px-3 py-2 text-xs text-emerald-400 hover:bg-slate-800 flex items-center gap-2"
+                              >
+                                <FileSpreadsheet size={13} /> Export Excel
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (confirm('Delete this quote?')) deleteQuote(quote.id);
+                                }}
+                                className="w-full text-left px-3 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center gap-2"
+                              >
+                                <Trash2 size={13} /> Delete
+                              </button>
+                            </OverflowMenu>
+                          </td>
+                        </tr>
+                      ),
+                    )
+                  )}
                 </tbody>
               </table>
             </div>
@@ -349,20 +534,30 @@ export default function Dashboard() {
                 <span>Stock Warning</span>
               </h2>
               <div className="space-y-3">
-                {inventory.filter((item: { stock: unknown; alertThreshold: unknown }) => Number(item.stock) < Number(item.alertThreshold)).length === 0 ? (
+                {inventory.filter(
+                  (item: { stock: unknown; alertThreshold: unknown }) =>
+                    Number(item.stock) < Number(item.alertThreshold),
+                ).length === 0 ? (
                   <div className="py-4 text-center text-slate-500 text-sm">All item stocks are healthy!</div>
-                ) : inventory.filter((item) => Number(item.stock) < Number(item.alertThreshold)).map((item: { id?: string; name: string; sku: string; stock: number; alertThreshold: number }) => (
-                  <div key={item.id} className="p-3 bg-slate-900/40 border border-slate-800/80 rounded-xl flex justify-between items-center">
-                    <div>
-                      <p className="text-sm font-medium text-white">{item.name}</p>
-                      <p className="text-xs text-slate-500 font-mono mt-0.5">{item.sku}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-amber-500 font-mono">{item.stock} left</p>
-                      <p className="text-xs text-slate-500">Limit: {item.alertThreshold}</p>
-                    </div>
-                  </div>
-                ))}
+                ) : (
+                  inventory
+                    .filter((item) => Number(item.stock) < Number(item.alertThreshold))
+                    .map((item: { id?: string; name: string; sku: string; stock: number; alertThreshold: number }) => (
+                      <div
+                        key={item.id}
+                        className="p-3 bg-slate-900/40 border border-slate-800/80 rounded-xl flex justify-between items-center"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-white">{item.name}</p>
+                          <p className="text-xs text-slate-500 font-mono mt-0.5">{item.sku}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-amber-500 font-mono">{item.stock} left</p>
+                          <p className="text-xs text-slate-500">Limit: {item.alertThreshold}</p>
+                        </div>
+                      </div>
+                    ))
+                )}
               </div>
             </div>
           </AnimatedSection>
@@ -376,18 +571,26 @@ export default function Dashboard() {
               </h2>
               <div className="space-y-2">
                 {customers
-                  .map((c: { id?: string; name: string; company?: string | null }) => ({ ...c, quoteCount: quoteCountByCustomer[c.id ?? ''] ?? 0 }))
+                  .map((c: { id?: string; name: string; company?: string | null }) => ({
+                    ...c,
+                    quoteCount: quoteCountByCustomer[c.id ?? ''] ?? 0,
+                  }))
                   .filter((c: { quoteCount: number }) => c.quoteCount > 0)
                   .sort((a: { quoteCount: number }, b: { quoteCount: number }) => b.quoteCount - a.quoteCount)
                   .slice(0, 5)
                   .map((c: { id?: string; name: string; company?: string | null; quoteCount: number }) => (
                     <button
                       key={c.id}
-                      onClick={() => { useSheetStore.getState().setFilter('customerId', c.id!); setActiveTab('quotes'); }}
+                      onClick={() => {
+                        useSheetStore.getState().setFilter('customerId', c.id!);
+                        setActiveTab('quotes');
+                      }}
                       className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-900/60 transition-colors group"
                     >
                       <div className="text-left">
-                        <p className="text-sm font-medium text-white group-hover:text-brand-300 transition-colors">{c.name}</p>
+                        <p className="text-sm font-medium text-white group-hover:text-brand-300 transition-colors">
+                          {c.name}
+                        </p>
                         {c.company && <p className="text-xs text-slate-500">{c.company}</p>}
                       </div>
                       <span className="text-xs font-mono bg-brand-500/15 text-brand-300 border border-brand-500/25 rounded-full px-2 py-0.5">

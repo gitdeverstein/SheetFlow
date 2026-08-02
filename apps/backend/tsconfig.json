@@ -6,12 +6,9 @@
     "strict": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "jsx": "react-jsx",
-    "jsxImportSource": "hono/jsx",
-
+    "jsxImportSource": "hono/jsx"
   },
   "exclude": ["node_modules"],
   "include": ["src"]
