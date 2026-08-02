@@ -257,9 +257,11 @@ export default function Dashboard() {
     let start = 0;
     const end = revenue;
     if (end === 0) {
-      setAnimatedRevenue(0);
-      return;
-    } // eslint-disable-line react-hooks/set-state-in-effect
+      const t = setTimeout(() => {
+        setAnimatedRevenue(0);
+      }, 0);
+      return () => clearTimeout(t);
+    }
     const duration = 400;
     const stepTime = 16;
     const steps = duration / stepTime;
