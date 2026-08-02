@@ -41,10 +41,13 @@ export const CustomerService = {
           .innerJoin(quotes, eq(quoteItems.quoteId, quotes.id))
           .where(sql`${quotes.customerId} = ${id} AND ${quotes.status} = 'Accepted'`);
 
-        const aggregated = itemsToRestore.reduce((acc, item) => {
-          acc[item.productId] = (acc[item.productId] || 0) + item.quantity;
-          return acc;
-        }, {} as Record<string, number>);
+        const aggregated = itemsToRestore.reduce(
+          (acc, item) => {
+            acc[item.productId] = (acc[item.productId] || 0) + item.quantity;
+            return acc;
+          },
+          {} as Record<string, number>,
+        );
 
         const sortedProductIds = Object.keys(aggregated).sort();
 
@@ -67,5 +70,5 @@ export const CustomerService = {
       if (pgCode) throw error; // let global handler map pg error codes
       throw new HTTPException(500, { message: 'Erreur lors de la suppression du client' });
     }
-  }
+  },
 };

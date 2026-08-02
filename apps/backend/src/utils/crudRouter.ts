@@ -19,22 +19,26 @@ export function createCrudRouter<T>(
   service: CrudService<T>,
   createSchema: ZodObject<ZodRawShape>,
   updateSchema?: ZodObject<ZodRawShape>,
-  entityName: string = 'Resource'
+  entityName: string = 'Resource',
 ) {
   const router = new Hono();
 
-  router.get('/', zValidator('query', z.object({
-    limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
-    offset: z.coerce.number().int().min(0).default(0),
-  })), async (c) => {
-    const { limit, offset } = c.req.valid('query');
-    const [list, total] = await Promise.all([
-      service.findAll(limit, offset),
-      service.countAll(),
-    ]);
-    c.res.headers.set('X-Total-Count', String(total));
-    return c.json(list);
-  });
+  router.get(
+    '/',
+    zValidator(
+      'query',
+      z.object({
+        limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
+        offset: z.coerce.number().int().min(0).default(0),
+      }),
+    ),
+    async (c) => {
+      const { limit, offset } = c.req.valid('query');
+      const [list, total] = await Promise.all([service.findAll(limit, offset), service.countAll()]);
+      c.res.headers.set('X-Total-Count', String(total));
+      return c.json(list);
+    },
+  );
 
   router.get('/:id', zValidator('param', z.object({ id: z.string().uuid() })), async (c) => {
     const { id } = c.req.valid('param');
@@ -52,16 +56,21 @@ export function createCrudRouter<T>(
     return c.json(inserted, 201);
   });
 
-  router.put('/:id', zValidator('param', z.object({ id: z.string().uuid() })), zValidator('json', updateSchema || createSchema.partial()), async (c) => {
-    const { id } = c.req.valid('param');
-    const validated = c.req.valid('json');
-    const updateData = { ...(validated as Record<string, unknown>) };
-    delete updateData.id;
-    delete updateData.createdAt;
-    const updated = await service.update(id, updateData);
-    if (!updated) throw new HTTPException(404, { message: `${entityName} not found` });
-    return c.json(updated);
-  });
+  router.put(
+    '/:id',
+    zValidator('param', z.object({ id: z.string().uuid() })),
+    zValidator('json', updateSchema || createSchema.partial()),
+    async (c) => {
+      const { id } = c.req.valid('param');
+      const validated = c.req.valid('json');
+      const updateData = { ...(validated as Record<string, unknown>) };
+      delete updateData.id;
+      delete updateData.createdAt;
+      const updated = await service.update(id, updateData);
+      if (!updated) throw new HTTPException(404, { message: `${entityName} not found` });
+      return c.json(updated);
+    },
+  );
 
   router.delete('/:id', zValidator('param', z.object({ id: z.string().uuid() })), async (c) => {
     const { id } = c.req.valid('param');

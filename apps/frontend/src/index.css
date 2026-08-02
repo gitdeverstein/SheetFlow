@@ -1,5 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
@@ -21,7 +21,7 @@
   font-family: var(--font-sans);
   background-color: var(--color-dark-950);
   color: var(--color-slate-100);
-  
+
   --glass-bg: rgba(15, 23, 42, 0.65);
   --glass-border: rgba(255, 255, 255, 0.08);
   --glass-hover-bg: rgba(15, 23, 42, 0.8);
@@ -41,7 +41,7 @@
   --color-slate-300: #334155;
   --color-slate-200: #1e293b;
   --color-slate-100: #0f172a;
-  
+
   --glass-bg: rgba(255, 255, 255, 0.75);
   --glass-border: rgba(15, 23, 42, 0.08);
   --glass-hover-bg: rgba(255, 255, 255, 0.85);
@@ -54,10 +54,15 @@ body {
   overflow-x: hidden;
   background-color: var(--color-dark-950);
   color: var(--color-slate-100);
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
 }
 
-.light :is(.text-white, .hover\:text-white:hover):not(button):not([type="button"]):not([type="submit"]):not(.text-white-keep):not(.text-white-icon) {
+.light
+  :is(.text-white, .hover\:text-white:hover):not(button):not([type='button']):not([type='submit']):not(
+    .text-white-keep
+  ):not(.text-white-icon) {
   color: #020617 !important;
 }
 
@@ -73,7 +78,10 @@ body {
   background: var(--glass-bg);
   backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
-  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    background 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
 .glass-panel-hover {

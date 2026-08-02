@@ -6,10 +6,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1, // Sequential to avoid auth state conflicts
-  reporter: [
-    ['html', { outputFolder: '../playwright-report' }],
-    ['list'],
-  ],
+  reporter: [['html', { outputFolder: '../playwright-report' }], ['list']],
   timeout: 30_000,
   use: {
     baseURL: 'http://localhost:5173',

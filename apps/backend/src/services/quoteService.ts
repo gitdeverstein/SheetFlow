@@ -26,7 +26,10 @@ async function deductStock(tx: any, items: Pick<QuoteItem, 'productId' | 'quanti
     if (Number(invItem.stock) < item.quantity) {
       throw new HTTPException(400, { message: 'Stock insuffisant' });
     }
-    await tx.update(inventory).set({ stock: sql`stock - ${item.quantity}` }).where(eq(inventory.id, item.productId));
+    await tx
+      .update(inventory)
+      .set({ stock: sql`stock - ${item.quantity}` })
+      .where(eq(inventory.id, item.productId));
   }
 }
 
@@ -34,7 +37,10 @@ async function deductStock(tx: any, items: Pick<QuoteItem, 'productId' | 'quanti
 async function restoreStock(tx: any, items: Pick<QuoteItem, 'productId' | 'quantity'>[]) {
   const sorted = [...items].sort((a, b) => a.productId.localeCompare(b.productId));
   for (const item of sorted) {
-    await tx.update(inventory).set({ stock: sql`stock + ${item.quantity}` }).where(eq(inventory.id, item.productId));
+    await tx
+      .update(inventory)
+      .set({ stock: sql`stock + ${item.quantity}` })
+      .where(eq(inventory.id, item.productId));
   }
 }
 
@@ -58,7 +64,10 @@ async function applyStockDelta(
     if (delta < 0 && Number(invItem.stock) < Math.abs(delta)) {
       throw new HTTPException(400, { message: 'Stock insuffisant' });
     }
-    await tx.update(inventory).set({ stock: sql`stock + ${delta}` }).where(eq(inventory.id, prodId));
+    await tx
+      .update(inventory)
+      .set({ stock: sql`stock + ${delta}` })
+      .where(eq(inventory.id, prodId));
   }
 }
 
@@ -105,16 +114,13 @@ export const QuoteService = {
 
     if (!quote) return null;
 
-    const items = await getDb()
-      .select()
-      .from(quoteItems)
-      .where(eq(quoteItems.quoteId, id));
+    const items = await getDb().select().from(quoteItems).where(eq(quoteItems.quoteId, id));
 
     return { ...quote, items };
   },
 
   async lookupUnitPrices(items: { productId: string }[]): Promise<Map<string, number>> {
-    const productIds = items.map(i => i.productId);
+    const productIds = items.map((i) => i.productId);
     if (productIds.length === 0) return new Map();
     const products = await getDb()
       .select({ id: inventory.id, price: inventory.price })
@@ -164,10 +170,7 @@ export const QuoteService = {
 
   async updateStatus(id: string, status: string) {
     return await getDb().transaction(async (tx) => {
-      const [oldQuote] = await tx
-        .select()
-        .from(quotes)
-        .where(eq(quotes.id, id));
+      const [oldQuote] = await tx.select().from(quotes).where(eq(quotes.id, id));
 
       if (!oldQuote) throw new HTTPException(404, { message: 'Quote not found' });
 
@@ -177,10 +180,7 @@ export const QuoteService = {
         throw new HTTPException(400, { message: 'Transition de statut non autorisée' });
       }
 
-      const items = await tx
-        .select()
-        .from(quoteItems)
-        .where(eq(quoteItems.quoteId, id));
+      const items = await tx.select().from(quoteItems).where(eq(quoteItems.quoteId, id));
 
       if (status === 'Accepted') {
         await deductStock(tx, items);
@@ -188,11 +188,7 @@ export const QuoteService = {
         await restoreStock(tx, items);
       }
 
-      const [updated] = await tx
-        .update(quotes)
-        .set({ status })
-        .where(eq(quotes.id, id))
-        .returning();
+      const [updated] = await tx.update(quotes).set({ status }).where(eq(quotes.id, id)).returning();
 
       return updated;
     });
@@ -200,21 +196,15 @@ export const QuoteService = {
 
   async update(id: string, data: Partial<CreateQuoteData>) {
     return await getDb().transaction(async (tx) => {
-      const [existing] = await tx
-        .select()
-        .from(quotes)
-        .where(eq(quotes.id, id));
+      const [existing] = await tx.select().from(quotes).where(eq(quotes.id, id));
 
       if (!existing) return null;
 
       if (existing.status === 'Accepted' && data.items !== undefined) {
-        throw new HTTPException(400, { message: 'Impossible de modifier les articles d\'un devis accepté' });
+        throw new HTTPException(400, { message: "Impossible de modifier les articles d'un devis accepté" });
       }
 
-      const existingItems = await tx
-        .select()
-        .from(quoteItems)
-        .where(eq(quoteItems.quoteId, id));
+      const existingItems = await tx.select().from(quoteItems).where(eq(quoteItems.quoteId, id));
 
       const newStatus = data.status || existing.status;
       const oldStatus = existing.status;
@@ -248,31 +238,28 @@ export const QuoteService = {
       if (data.total !== undefined) updatePayload.total = data.total.toString();
       if (data.notes !== undefined) updatePayload.notes = data.notes ?? null;
 
-      const [updated] = await tx
-        .update(quotes)
-        .set(updatePayload)
-        .where(eq(quotes.id, id))
-        .returning();
+      const [updated] = await tx.update(quotes).set(updatePayload).where(eq(quotes.id, id)).returning();
 
       if (newItems.length > 0) {
-        const existingMap = new Map(existingItems.map(i => [i.productId, i]));
-        const newMap2 = new Map(newItems.map(i => [i.productId, i]));
+        const existingMap = new Map(existingItems.map((i) => [i.productId, i]));
+        const newMap2 = new Map(newItems.map((i) => [i.productId, i]));
 
-        const toDelete = existingItems
-          .filter(i => !newMap2.has(i.productId))
-          .map(i => i.id);
+        const toDelete = existingItems.filter((i) => !newMap2.has(i.productId)).map((i) => i.id);
         const toInsert = newItems
-          .filter(i => !existingMap.has(i.productId))
-          .map(item => ({
+          .filter((i) => !existingMap.has(i.productId))
+          .map((item) => ({
             quoteId: id,
             productId: item.productId,
             name: item.name,
             quantity: item.quantity,
             unitPrice: item.unitPrice.toString(),
           }));
-        const toUpdate = newItems.filter(i => existingMap.has(i.productId) &&
-          (existingMap.get(i.productId)!.quantity !== i.quantity ||
-           existingMap.get(i.productId)!.unitPrice !== String(i.unitPrice)));
+        const toUpdate = newItems.filter(
+          (i) =>
+            existingMap.has(i.productId) &&
+            (existingMap.get(i.productId)!.quantity !== i.quantity ||
+              existingMap.get(i.productId)!.unitPrice !== String(i.unitPrice)),
+        );
 
         if (toDelete.length > 0) {
           await tx.delete(quoteItems).where(inArray(quoteItems.id, toDelete));
@@ -287,12 +274,13 @@ export const QuoteService = {
           await tx.insert(quoteItems).values(toInsert);
         }
 
-        const finalItems = toInsert.length > 0
-          ? newItems
-          : existingItems.map(i => {
-              const nu = newMap2.get(i.productId);
-              return nu ? { ...i, quantity: nu.quantity, unitPrice: String(nu.unitPrice), name: nu.name } : i;
-            });
+        const finalItems =
+          toInsert.length > 0
+            ? newItems
+            : existingItems.map((i) => {
+                const nu = newMap2.get(i.productId);
+                return nu ? { ...i, quantity: nu.quantity, unitPrice: String(nu.unitPrice), name: nu.name } : i;
+              });
 
         return { ...updated, items: finalItems };
       }
@@ -303,25 +291,28 @@ export const QuoteService = {
 
   async duplicate(id: string) {
     return await getDb().transaction(async (tx) => {
-      const [original] = await tx
-        .select()
-        .from(quotes)
-        .where(eq(quotes.id, id));
+      const [original] = await tx.select().from(quotes).where(eq(quotes.id, id));
       if (!original) throw new HTTPException(404, { message: 'Quote not found' });
 
       const originalItems = await tx.select().from(quoteItems).where(eq(quoteItems.quoteId, id));
-      const [customer] = await tx.select({ name: customers.name }).from(customers).where(eq(customers.id, original.customerId));
+      const [customer] = await tx
+        .select({ name: customers.name })
+        .from(customers)
+        .where(eq(customers.id, original.customerId));
 
       const newNumber = `QT-${new Date().getFullYear()}-${crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase()}`;
-      const [newQuote] = await tx.insert(quotes).values({
-        customerId: original.customerId,
-        quoteNumber: newNumber,
-        status: 'Draft',
-        total: original.total,
-        validUntil: original.validUntil ? new Date(original.validUntil) : null,
-        notes: original.notes ?? null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any).returning();
+      const [newQuote] = await tx
+        .insert(quotes)
+        .values({
+          customerId: original.customerId,
+          quoteNumber: newNumber,
+          status: 'Draft',
+          total: original.total,
+          validUntil: original.validUntil ? new Date(original.validUntil) : null,
+          notes: original.notes ?? null,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any)
+        .returning();
 
       const itemsToInsert = originalItems.map((item) => ({
         quoteId: newQuote.id,
@@ -339,28 +330,19 @@ export const QuoteService = {
 
   async delete(id: string) {
     return await getDb().transaction(async (tx) => {
-      const [quote] = await tx
-        .select()
-        .from(quotes)
-        .where(eq(quotes.id, id));
+      const [quote] = await tx.select().from(quotes).where(eq(quotes.id, id));
 
       if (!quote) return null;
 
       if (quote.status === 'Accepted') {
-        const items = await tx
-          .select()
-          .from(quoteItems)
-          .where(eq(quoteItems.quoteId, id));
+        const items = await tx.select().from(quoteItems).where(eq(quoteItems.quoteId, id));
 
         await restoreStock(tx, items);
       }
 
-      const [deleted] = await tx
-        .delete(quotes)
-        .where(eq(quotes.id, id))
-        .returning();
+      const [deleted] = await tx.delete(quotes).where(eq(quotes.id, id)).returning();
 
       return deleted;
     });
-  }
+  },
 };

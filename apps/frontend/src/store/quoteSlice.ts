@@ -106,8 +106,9 @@ export const createQuoteSlice: StateCreator<SheetStoreState, [], [], QuoteSlice>
       get().addToast('PDF downloaded successfully');
     } catch (err: unknown) {
       get().addToast(err instanceof Error ? err.message : 'Failed to generate PDF', 'error');
+    } finally {
+      set({ generatingPdfId: null });
     }
-    finally { set({ generatingPdfId: null }); }
   },
 
   exportExcel: async (id) => {
@@ -118,7 +119,8 @@ export const createQuoteSlice: StateCreator<SheetStoreState, [], [], QuoteSlice>
       get().addToast('Excel file downloaded successfully');
     } catch (err: unknown) {
       get().addToast(err instanceof Error ? err.message : 'Failed to export Excel', 'error');
+    } finally {
+      set({ exportingExcelId: null });
     }
-    finally { set({ exportingExcelId: null }); }
   },
 });

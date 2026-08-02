@@ -127,9 +127,7 @@
         "inventory_sku_unique": {
           "name": "inventory_sku_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "sku"
-          ]
+          "columns": ["sku"]
         }
       },
       "policies": {},
@@ -186,12 +184,8 @@
           "name": "quote_items_quote_id_quotes_id_fk",
           "tableFrom": "quote_items",
           "tableTo": "quotes",
-          "columnsFrom": [
-            "quote_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["quote_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -199,12 +193,8 @@
           "name": "quote_items_product_id_inventory_id_fk",
           "tableFrom": "quote_items",
           "tableTo": "inventory",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["product_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -272,12 +262,8 @@
           "name": "quotes_customer_id_customers_id_fk",
           "tableFrom": "quotes",
           "tableTo": "customers",
-          "columnsFrom": [
-            "customer_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["customer_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -287,9 +273,7 @@
         "quotes_quote_number_unique": {
           "name": "quotes_quote_number_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "quote_number"
-          ]
+          "columns": ["quote_number"]
         }
       },
       "policies": {},
@@ -346,16 +330,12 @@
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         },
         "uq_users_google_id": {
           "name": "uq_users_google_id",
           "nullsNotDistinct": false,
-          "columns": [
-            "google_id"
-          ]
+          "columns": ["google_id"]
         }
       },
       "policies": {},
@@ -398,12 +378,8 @@
           "name": "sessions_user_id_users_id_fk",
           "tableFrom": "sessions",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

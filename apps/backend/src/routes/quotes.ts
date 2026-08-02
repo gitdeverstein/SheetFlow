@@ -8,18 +8,22 @@ import { resolveCatalogPrices } from '../services/priceService.js';
 
 const router = new Hono();
 
-router.get('/', zValidator('query', z.object({
-  limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
-  offset: z.coerce.number().int().min(0).default(0),
-})), async (c) => {
-  const { limit, offset } = c.req.valid('query');
-  const [list, total] = await Promise.all([
-    QuoteService.findAll(limit, offset),
-    QuoteService.countAll(),
-  ]);
-  c.res.headers.set('X-Total-Count', String(total));
-  return c.json(list);
-});
+router.get(
+  '/',
+  zValidator(
+    'query',
+    z.object({
+      limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
+      offset: z.coerce.number().int().min(0).default(0),
+    }),
+  ),
+  async (c) => {
+    const { limit, offset } = c.req.valid('query');
+    const [list, total] = await Promise.all([QuoteService.findAll(limit, offset), QuoteService.countAll()]);
+    c.res.headers.set('X-Total-Count', String(total));
+    return c.json(list);
+  },
+);
 
 router.get('/:id', zValidator('param', z.object({ id: z.string().uuid() })), async (c) => {
   const { id } = c.req.valid('param');
@@ -38,9 +42,11 @@ router.post('/', zValidator('json', QuoteSchema), async (c) => {
   for (const item of correctedItems) {
     calculatedTotal += item.quantity * item.unitPrice;
   }
-  calculatedTotal = Math.round(calculatedTotal * 1.20 * 100) / 100;
+  calculatedTotal = Math.round(calculatedTotal * 1.2 * 100) / 100;
 
-  const quoteNumber = validated.quoteNumber || `QT-${new Date().getFullYear()}-${crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+  const quoteNumber =
+    validated.quoteNumber ||
+    `QT-${new Date().getFullYear()}-${crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase()}`;
   const quotePayload = {
     ...validated,
     items: correctedItems,
@@ -52,40 +58,50 @@ router.post('/', zValidator('json', QuoteSchema), async (c) => {
   return c.json(result, 201);
 });
 
-router.put('/:id', zValidator('param', z.object({ id: z.string().uuid() })), zValidator('json', QuoteSchema.partial()), async (c) => {
-  const { id } = c.req.valid('param');
-  const validated = c.req.valid('json');
+router.put(
+  '/:id',
+  zValidator('param', z.object({ id: z.string().uuid() })),
+  zValidator('json', QuoteSchema.partial()),
+  async (c) => {
+    const { id } = c.req.valid('param');
+    const validated = c.req.valid('json');
 
-  const items = validated.items || [];
-  let correctedItems = items;
-  if (items.length > 0) {
-    correctedItems = await resolveCatalogPrices(items);
-  }
+    const items = validated.items || [];
+    let correctedItems = items;
+    if (items.length > 0) {
+      correctedItems = await resolveCatalogPrices(items);
+    }
 
-  let calculatedTotal = 0;
-  for (const item of correctedItems) {
-    calculatedTotal += item.quantity * item.unitPrice;
-  }
-  calculatedTotal = Math.round(calculatedTotal * 1.20 * 100) / 100;
+    let calculatedTotal = 0;
+    for (const item of correctedItems) {
+      calculatedTotal += item.quantity * item.unitPrice;
+    }
+    calculatedTotal = Math.round(calculatedTotal * 1.2 * 100) / 100;
 
-  const quotePayload = {
-    ...validated,
-    items: correctedItems,
-    total: correctedItems.length > 0 ? calculatedTotal : validated.total,
-  };
+    const quotePayload = {
+      ...validated,
+      items: correctedItems,
+      total: correctedItems.length > 0 ? calculatedTotal : validated.total,
+    };
 
-  const result = await QuoteService.update(id, quotePayload);
-  if (!result) throw new HTTPException(404, { message: 'Quote not found' });
-  return c.json(result);
-});
+    const result = await QuoteService.update(id, quotePayload);
+    if (!result) throw new HTTPException(404, { message: 'Quote not found' });
+    return c.json(result);
+  },
+);
 
-router.put('/:id/status', zValidator('param', z.object({ id: z.string().uuid() })), zValidator('json', z.object({ status: z.enum(QUOTE_STATUSES) })), async (c) => {
-  const { id } = c.req.valid('param');
-  const { status } = c.req.valid('json');
+router.put(
+  '/:id/status',
+  zValidator('param', z.object({ id: z.string().uuid() })),
+  zValidator('json', z.object({ status: z.enum(QUOTE_STATUSES) })),
+  async (c) => {
+    const { id } = c.req.valid('param');
+    const { status } = c.req.valid('json');
 
-  const updated = await QuoteService.updateStatus(id, status);
-  return c.json(updated);
-});
+    const updated = await QuoteService.updateStatus(id, status);
+    return c.json(updated);
+  },
+);
 
 router.post('/:id/duplicate', zValidator('param', z.object({ id: z.string().uuid() })), async (c) => {
   const { id } = c.req.valid('param');
