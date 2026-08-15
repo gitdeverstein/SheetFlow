@@ -265,6 +265,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                     height={Math.min(paginatedRows.length * 48, 600)}
                     itemCount={paginatedRows.length}
                     itemSize={48}
+                    itemKey={(index) => paginatedRows[index]?.id || index}
                     width="100%"
                     overscanCount={5}
                   >

@@ -86,18 +86,23 @@ function App() {
           isDarkMode={isDarkMode}
           onToggleTheme={toggleTheme}
           onSignIn={async (email, password) => {
-          const result = await login(email, password);
-          setUser(result.user);
-          setIsLoggedIn(true);
-          prefetchData();
-        }}
+            const result = await login(email, password);
+            setUser(result.user);
+            setIsLoggedIn(true);
+            prefetchData();
+          }}
           onSignUp={async (name, email, password) => {
-          const result = await register(name, email, password);
-          setUser(result.user);
-          setIsLoggedIn(true);
-          prefetchData();
-        }}
-      />
+            const result = await register(name, email, password);
+            setUser(result.user);
+            setIsLoggedIn(true);
+            prefetchData();
+          }}
+          onGuestMode={() => {
+            setUser({ id: 'guest', name: 'Guest User', email: 'guest@sheetflow.demo' });
+            setIsLoggedIn(true);
+            prefetchData();
+          }}
+        />
       </ErrorBoundary>
     );
   }
@@ -267,7 +272,7 @@ function App() {
             >
               <div className="flex-1">
                 <p className="text-xs font-semibold text-slate-400 capitalize">
-                  {toast.type === 'success' ? 'Succès' : toast.type}
+                  {toast.type === 'success' ? 'Success' : toast.type}
                 </p>
                 <p className="text-sm text-slate-200 mt-0.5">{toast.text}</p>
                 {toast.undoAction && (
