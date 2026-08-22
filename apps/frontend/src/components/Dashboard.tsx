@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { QUOTE_STATUS_TRANSITIONS } from '@sheetflow/shared';
 import AnimatedSection from './AnimatedSection.js';
 import SkeletonLoader from './SkeletonLoader.js';
+import ConfirmModal from './ConfirmModal.js';
 
 // ── SVG Donut Chart ──────────────────────────────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
@@ -37,7 +38,7 @@ function DonutChart({ data }: { data: Record<string, number> }) {
 
   return (
     <div className="flex items-center gap-6">
-      <svg width="120" height="120" viewBox="0 0 120 120">
+      <svg width="120" height="120" viewBox="0 0 120 120" role="img" aria-label="Quote status breakdown chart">
         {slices.map((s) => (
           <circle
             key={s.status}
@@ -85,6 +86,9 @@ function StatusPill({ status, transitions, onChange }: { status: string; transit
     <div ref={ref} className="relative inline-block">
       <button
         onClick={() => transitions.length > 0 && setOpen(o => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Current status: ${status}. Click to change status.`}
         className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full border transition-colors ${STATUS_PILL[status] ?? 'bg-slate-700 text-slate-300 border-slate-600'} ${transitions.length > 0 ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
       >
         <span className={`w-1.5 h-1.5 rounded-full ${STATUS_COLORS[status] ? '' : 'bg-slate-400'}`} style={{ backgroundColor: STATUS_COLORS[status] }} />
@@ -119,7 +123,7 @@ function OverflowMenu({ children }: { children: React.ReactNode }) {
   }, []);
   return (
     <div ref={ref} className="relative sm:hidden">
-      <button onClick={() => setOpen(o => !o)} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
+      <button onClick={() => setOpen(o => !o)} aria-label="More options" aria-expanded={open} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer">
         <MoreHorizontal size={16} />
       </button>
       <AnimatePresence>
@@ -163,6 +167,21 @@ export default function Dashboard() {
 
   const [animatedRevenue, setAnimatedRevenue] = useState(0);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+
+  // Modal confirmation state
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    variant: 'danger' | 'warning' | 'brand';
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    variant: 'danger',
+    onConfirm: () => {},
+  });
 
   const totalCustomers = customers.length;
   const totalProducts = inventory.length;
@@ -211,8 +230,48 @@ export default function Dashboard() {
     setDuplicatingId(null);
   };
 
+  const promptStatusChange = (quoteId: string, currentStatus: string, newStatus: string) => {
+    if (newStatus === 'Accepted' || currentStatus === 'Accepted') {
+      setConfirmModal({
+        isOpen: true,
+        title: 'Change Quote Status',
+        message: `Are you sure you want to change status to "${newStatus}"? This action will adjust item inventory stock accordingly.`,
+        variant: 'warning',
+        onConfirm: () => {
+          updateQuoteStatus(quoteId, newStatus);
+          setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+        },
+      });
+    } else {
+      updateQuoteStatus(quoteId, newStatus);
+    }
+  };
+
+  const promptDeleteQuote = (quoteId: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Quote',
+      message: 'Are you sure you want to delete this quote? If accepted, associated product stock will be restored.',
+      variant: 'danger',
+      onConfirm: () => {
+        deleteQuote(quoteId);
+        setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
+  };
+
   return (
     <div className="space-y-8">
+      {/* Custom Reusable Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+      />
+
       <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5 }}>
         <h1 className="text-4xl font-display font-bold tracking-tight text-white">Real-time KPIs</h1>
         <p className="text-slate-400 mt-2">Monitor your customer pipelines, sales documents, and stock thresholds.</p>
@@ -279,11 +338,7 @@ export default function Dashboard() {
                           <StatusPill
                             status={quote.status}
                             transitions={QUOTE_STATUS_TRANSITIONS[quote.status] ?? []}
-                            onChange={(newStatus) => {
-                              if ((newStatus === 'Accepted' || quote.status === 'Accepted') &&
-                                !window.confirm(`Change status to "${newStatus}"? This will adjust inventory stock.`)) return;
-                              updateQuoteStatus(quote.id, newStatus);
-                            }}
+                            onChange={(newStatus) => promptStatusChange(quote.id, quote.status, newStatus)}
                           />
                           <ExpiryBadge validUntil={quote.validUntil} status={quote.status} />
                         </div>
@@ -292,35 +347,35 @@ export default function Dashboard() {
                         {/* Desktop actions */}
                         <div className="hidden sm:flex items-center justify-center gap-1.5 flex-wrap">
                           <button onClick={() => { setEditingQuote(quote.id); setActiveTab('quotes'); }}
-                            className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors" title="Edit">
+                            className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors cursor-pointer" title="Edit">
                             <Edit3 size={15} />
                           </button>
                           <button onClick={() => handleDuplicate(quote.id)} disabled={duplicatingId === quote.id}
-                            className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors disabled:opacity-50" title="Duplicate as Draft">
+                            className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors disabled:opacity-50 cursor-pointer" title="Duplicate as Draft">
                             {duplicatingId === quote.id ? <Loader2 size={15} className="animate-spin" /> : <Copy size={15} />}
                           </button>
                           <button onClick={() => generatePdf(quote.id)} disabled={generatingPdfId === quote.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-brand-500 hover:bg-brand-600 text-white transition-colors disabled:opacity-50">
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-brand-500 hover:bg-brand-600 text-white transition-colors disabled:opacity-50 cursor-pointer">
                             {generatingPdfId === quote.id ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
                             <span>PDF</span>
                           </button>
                           <button onClick={() => exportExcel(quote.id)} disabled={exportingExcelId === quote.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50">
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 cursor-pointer">
                             {exportingExcelId === quote.id ? <Loader2 size={12} className="animate-spin" /> : <FileSpreadsheet size={12} />}
                             <span>XLS</span>
                           </button>
-                          <button onClick={() => { if (confirm('Delete this quote? Stock will be restored if accepted.')) deleteQuote(quote.id); }}
-                            className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors" title="Delete">
+                          <button onClick={() => promptDeleteQuote(quote.id)}
+                            className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer" title="Delete">
                             <Trash2 size={15} />
                           </button>
                         </div>
                         {/* Mobile overflow menu */}
                         <OverflowMenu>
-                          <button onClick={() => { setEditingQuote(quote.id); setActiveTab('quotes'); }} className="w-full text-left px-3 py-2 text-xs text-cyan-400 hover:bg-slate-800 flex items-center gap-2"><Edit3 size={13} /> Edit</button>
-                          <button onClick={() => handleDuplicate(quote.id)} className="w-full text-left px-3 py-2 text-xs text-violet-400 hover:bg-slate-800 flex items-center gap-2"><Copy size={13} /> Duplicate</button>
-                          <button onClick={() => generatePdf(quote.id)} className="w-full text-left px-3 py-2 text-xs text-brand-400 hover:bg-slate-800 flex items-center gap-2"><Download size={13} /> Export PDF</button>
-                          <button onClick={() => exportExcel(quote.id)} className="w-full text-left px-3 py-2 text-xs text-emerald-400 hover:bg-slate-800 flex items-center gap-2"><FileSpreadsheet size={13} /> Export Excel</button>
-                          <button onClick={() => { if (confirm('Delete this quote?')) deleteQuote(quote.id); }} className="w-full text-left px-3 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center gap-2"><Trash2 size={13} /> Delete</button>
+                          <button onClick={() => { setEditingQuote(quote.id); setActiveTab('quotes'); }} className="w-full text-left px-3 py-2 text-xs text-cyan-400 hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><Edit3 size={13} /> Edit</button>
+                          <button onClick={() => handleDuplicate(quote.id)} className="w-full text-left px-3 py-2 text-xs text-violet-400 hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><Copy size={13} /> Duplicate</button>
+                          <button onClick={() => generatePdf(quote.id)} className="w-full text-left px-3 py-2 text-xs text-brand-400 hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><Download size={13} /> Export PDF</button>
+                          <button onClick={() => exportExcel(quote.id)} className="w-full text-left px-3 py-2 text-xs text-emerald-400 hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><FileSpreadsheet size={13} /> Export Excel</button>
+                          <button onClick={() => promptDeleteQuote(quote.id)} className="w-full text-left px-3 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><Trash2 size={13} /> Delete</button>
                         </OverflowMenu>
                       </td>
                     </tr>
@@ -384,7 +439,7 @@ export default function Dashboard() {
                     <button
                       key={c.id}
                       onClick={() => { useSheetStore.getState().setFilter('customerId', c.id!); setActiveTab('quotes'); }}
-                      className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-900/60 transition-colors group"
+                      className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-900/60 transition-colors group cursor-pointer"
                     >
                       <div className="text-left">
                         <p className="text-sm font-medium text-white group-hover:text-brand-300 transition-colors">{c.name}</p>
