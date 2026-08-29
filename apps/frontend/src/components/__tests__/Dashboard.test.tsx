@@ -244,20 +244,21 @@ describe('Dashboard', () => {
     expect(defaultStore.setActiveTab).toHaveBeenCalledWith('quotes');
   });
 
-  it('renders delete button and calls deleteQuote after confirm', () => {
+  it('renders delete button and calls deleteQuote after confirm modal', async () => {
     const deleteQuote = vi.fn().mockResolvedValue(undefined);
     mockAllHooks({ store: { deleteQuote } });
     render(<Dashboard />);
     const deleteButtons = screen.getAllByRole('button').filter(b => b.getAttribute('title') === 'Delete');
     expect(deleteButtons.length).toBeGreaterThanOrEqual(1);
 
-    const originalConfirm = window.confirm;
-    window.confirm = vi.fn(() => true);
-
     fireEvent.click(deleteButtons[0]);
-    expect(deleteQuote).toHaveBeenCalled();
 
-    window.confirm = originalConfirm;
+    // Modal should appear
+    expect(screen.getByText('Delete Quote')).toBeInTheDocument();
+    const modalDeleteButton = await screen.findByText('Delete', { selector: 'button' });
+    fireEvent.click(modalDeleteButton);
+
+    expect(deleteQuote).toHaveBeenCalled();
   });
 
   // ── Low Stock Watchlist ────────────────────────────────────────────────
