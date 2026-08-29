@@ -16,9 +16,12 @@ vi.mock('framer-motion', () => {
 });
 
 vi.mock('react-window', () => ({
-  FixedSizeList: ({ children, itemCount }: any) => (
+  FixedSizeList: ({ children, itemCount, itemKey, itemData }: any) => (
     <div data-testid="fixed-size-list">
-      {Array.from({ length: itemCount }, (_, index) => children({ index, style: {} }))}
+      {Array.from({ length: itemCount }, (_, index) => {
+        const key = itemKey ? itemKey(index, itemData) : index;
+        return <div key={key}>{children({ index, style: {}, data: itemData })}</div>;
+      })}
     </div>
   ),
 }));
