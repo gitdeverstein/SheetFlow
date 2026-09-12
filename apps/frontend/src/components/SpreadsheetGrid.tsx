@@ -143,12 +143,31 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
           {tab === 'inventory' && (
             <>
               <input ref={csvInputRef} type="file" accept=".csv" className="hidden" onChange={handleCsvImport} />
+              <button
+                type="button"
+                onClick={() => {
+                  const content = 'sku,name,stock,alertThreshold,price\nWGT-001,Premium Widget,50,10,149.99\nACC-001,USB-C Hub,200,30,34.99\n';
+                  const blob = new Blob([content], { type: 'text/csv' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = 'sheetflow_inventory_template.csv';
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="px-3 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-semibold rounded-xl transition-all cursor-pointer"
+                title="Download sample CSV template"
+                aria-label="Download Sample CSV"
+              >
+                Sample CSV
+              </button>
               <motion.button
                 onClick={() => csvInputRef.current?.click()}
                 disabled={importing}
                 whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-medium rounded-xl transition-all disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-medium rounded-xl transition-all disabled:opacity-50 cursor-pointer"
                 title="Import CSV (columns: sku, name, stock, alertThreshold, price)"
+                aria-label="Import CSV File"
               >
                 {importing ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
                 <span>{importing ? 'Importing…' : 'Import CSV'}</span>
@@ -265,14 +284,16 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                     height={Math.min(paginatedRows.length * 48, 600)}
                     itemCount={paginatedRows.length}
                     itemSize={48}
+                    itemKey={(index) => paginatedRows[index]?.id || index}
                     width="100%"
                     overscanCount={5}
                   >
                     {({ index, style }) => {
                       const row = paginatedRows[index];
-                      const isSaving = savingRowId === row.id;
+                      const isSaving = savingRowId === row?.id;
                       return (
                         <div
+                          key={row?.id || index}
                           className="grid hover:bg-slate-900/20 transition-colors group border-b border-slate-800/60"
                           style={{ ...style, gridTemplateColumns: `repeat(${columns.length}, 1fr) 100px` } as React.CSSProperties}
                           tabIndex={0}
