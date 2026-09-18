@@ -5,9 +5,22 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 vi.mock('framer-motion', () => {
   const C = ({ children, className, ...props }: any) => {
     const safe = Object.fromEntries(
-      Object.entries(props).filter(([k]) => k !== 'animate' && k !== 'transition' && k !== 'initial' && k !== 'exit' && k !== 'variants' && k !== 'whileHover' && k !== 'whileTap')
+      Object.entries(props).filter(
+        ([k]) =>
+          k !== 'animate' &&
+          k !== 'transition' &&
+          k !== 'initial' &&
+          k !== 'exit' &&
+          k !== 'variants' &&
+          k !== 'whileHover' &&
+          k !== 'whileTap',
+      ),
     );
-    return <div className={className} {...safe}>{children}</div>;
+    return (
+      <div className={className} {...safe}>
+        {children}
+      </div>
+    );
   };
   return {
     motion: new Proxy({}, { get: () => C }),
@@ -34,7 +47,7 @@ vi.mock('../../hooks/useInventory.js', () => ({
 }));
 
 vi.mock('@sheetflow/shared', () => ({
-  TAX_RATE: 0.20,
+  TAX_RATE: 0.2,
   TAX_RATE_LABEL: 'VAT (20%)',
 }));
 
@@ -82,23 +95,27 @@ function mockAllHooks(overrides?: {
   store?: Record<string, any>;
   editingQuoteId?: string | null;
 }) {
-  const { customers = sampleCustomers, inventory = sampleInventory,
-          store = {}, editingQuoteId = null } = overrides ?? {};
+  const {
+    customers = sampleCustomers,
+    inventory = sampleInventory,
+    store = {},
+    editingQuoteId = null,
+  } = overrides ?? {};
   vi.mocked(useCustomers).mockReturnValue({ data: customers } as any);
   vi.mocked(useInventory).mockReturnValue({ data: inventory } as any);
   vi.mocked(useSheetStore).mockReturnValue({ ...defaultStore, editingQuoteId, ...store });
 }
 
-/** Helper: select a customer, add an item, and select a product to create a valid quote form state. */  async function fillValidQuote() {
+/** Helper: select a customer, add an item, and select a product to create a valid quote form state. */ async function fillValidQuote() {
   const customerSelect = screen.getByDisplayValue('Select a Customer...');
   fireEvent.change(customerSelect, { target: { value: 'c1' } });
 
   fireEvent.click(screen.getByText('Add Item'));
 
   // Select the first product in the newly added item row
-  const productSelects = screen.getAllByRole('combobox').filter(s => {
+  const productSelects = screen.getAllByRole('combobox').filter((s) => {
     const options = Array.from(s.querySelectorAll('option'));
-    return options.some(o => o.textContent?.includes('Premium Widget'));
+    return options.some((o) => o.textContent?.includes('Premium Widget'));
   });
   if (productSelects.length > 0) {
     fireEvent.change(productSelects[0], { target: { value: 'i1' } });
@@ -138,7 +155,9 @@ describe('QuoteGenerator', () => {
   it('renders customer options in the dropdown', () => {
     render(<QuoteGenerator />);
     const options = screen.getAllByRole('option');
-    const customerOptions = options.filter(o => o.textContent?.includes('Acme Corp') || o.textContent?.includes('Beta Inc'));
+    const customerOptions = options.filter(
+      (o) => o.textContent?.includes('Acme Corp') || o.textContent?.includes('Beta Inc'),
+    );
     expect(customerOptions.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -148,7 +167,7 @@ describe('QuoteGenerator', () => {
     fireEvent.change(searchInput, { target: { value: 'Acme' } });
     // The select options are filtered by the search state
     const options = screen.getAllByRole('option');
-    const acmeOptions = options.filter(o => o.textContent?.includes('Acme Corp'));
+    const acmeOptions = options.filter((o) => o.textContent?.includes('Acme Corp'));
     expect(acmeOptions.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -178,7 +197,9 @@ describe('QuoteGenerator', () => {
     render(<QuoteGenerator />);
     fireEvent.click(screen.getByText('Add Item'));
     const options = screen.getAllByRole('option');
-    const productOptions = options.filter(o => o.textContent?.includes('Premium Widget') || o.textContent?.includes('Ergonomic Gadget'));
+    const productOptions = options.filter(
+      (o) => o.textContent?.includes('Premium Widget') || o.textContent?.includes('Ergonomic Gadget'),
+    );
     expect(productOptions.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -195,9 +216,8 @@ describe('QuoteGenerator', () => {
     render(<QuoteGenerator />);
     fireEvent.click(screen.getByText('Add Item'));
     const options = screen.getAllByRole('option');
-    const productOptions = options.filter(o =>
-      o.textContent?.includes('Premium Widget') ||
-      o.textContent?.includes('Ergonomic Gadget')
+    const productOptions = options.filter(
+      (o) => o.textContent?.includes('Premium Widget') || o.textContent?.includes('Ergonomic Gadget'),
     );
     expect(productOptions).toHaveLength(0);
   });
@@ -229,9 +249,9 @@ describe('QuoteGenerator', () => {
 
     await waitFor(() => {
       // After loading, the items should be rendered and product selects visible
-      const productSelects = screen.getAllByRole('combobox').filter(s => {
+      const productSelects = screen.getAllByRole('combobox').filter((s) => {
         const options = Array.from(s.querySelectorAll('option'));
-        return options.some(o => o.textContent?.includes('Premium Widget'));
+        return options.some((o) => o.textContent?.includes('Premium Widget'));
       });
       expect(productSelects.length).toBeGreaterThanOrEqual(1);
     });
@@ -399,9 +419,12 @@ describe('QuoteGenerator', () => {
     fireEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(updateQuote).toHaveBeenCalledWith('q1', expect.objectContaining({
-        customerId: 'c1',
-      }));
+      expect(updateQuote).toHaveBeenCalledWith(
+        'q1',
+        expect.objectContaining({
+          customerId: 'c1',
+        }),
+      );
     });
   });
 

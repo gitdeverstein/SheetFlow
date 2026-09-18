@@ -63,7 +63,7 @@ export async function apiFetch<T = unknown>(url: string, options: ApiFetchOption
     }
 
     const text = await res.text();
-    return text ? JSON.parse(text) : undefined as T;
+    return text ? JSON.parse(text) : (undefined as T);
   } catch (err: unknown) {
     if (err instanceof Error && err.name === 'AbortError') {
       throw new Error('Request timed out. Please try again.', { cause: err });
@@ -77,7 +77,10 @@ export async function apiFetch<T = unknown>(url: string, options: ApiFetchOption
   }
 }
 
-export async function login(email: string, password: string): Promise<{ user: { id: string; name: string; email: string } }> {
+export async function login(
+  email: string,
+  password: string,
+): Promise<{ user: { id: string; name: string; email: string } }> {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -91,7 +94,11 @@ export async function login(email: string, password: string): Promise<{ user: { 
   return res.json();
 }
 
-export async function register(name: string, email: string, password: string): Promise<{ user: { id: string; name: string; email: string } }> {
+export async function register(
+  name: string,
+  email: string,
+  password: string,
+): Promise<{ user: { id: string; name: string; email: string } }> {
   const res = await fetch(`${API_BASE}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -126,7 +133,7 @@ export function buildCrmRow(c: Customer): SheetRow {
       company: { id: `company-${c.id}`, raw: c.company || '', value: c.company || '', error: null },
       status: { id: `status-${c.id}`, raw: c.status, value: c.status, error: null },
       notes: { id: `notes-${c.id}`, raw: c.notes || '', value: c.notes || '', error: null },
-    }
+    },
   };
 }
 
@@ -137,8 +144,13 @@ export function buildInvRow(item: InventoryItem): SheetRow {
       sku: { id: `sku-${item.id}`, raw: item.sku, value: item.sku, error: null },
       name: { id: `name-${item.id}`, raw: item.name, value: item.name, error: null },
       stock: { id: `stock-${item.id}`, raw: String(item.stock), value: item.stock, error: null },
-      alertThreshold: { id: `alertThreshold-${item.id}`, raw: String(item.alertThreshold), value: item.alertThreshold, error: null },
+      alertThreshold: {
+        id: `alertThreshold-${item.id}`,
+        raw: String(item.alertThreshold),
+        value: item.alertThreshold,
+        error: null,
+      },
       price: { id: `price-${item.id}`, raw: String(item.price), value: Number(item.price), error: null },
-    }
+    },
   };
 }

@@ -82,9 +82,12 @@ router.post('/register', zValidator('json', RegisterSchema), async (c) => {
 
   await createSession(c, created.id);
 
-  return c.json({
-    user: { id: created.id, name: created.name, email: created.email },
-  }, 201);
+  return c.json(
+    {
+      user: { id: created.id, name: created.name, email: created.email },
+    },
+    201,
+  );
 });
 
 // ── POST /login ──────────────────────────────────────────────────────────────
@@ -155,7 +158,9 @@ router.get('/google/callback', async (c) => {
   const storedState = getCookie(c, 'oauth_state');
 
   if (!code || !returnedState || returnedState !== storedState) {
-    return c.redirect(`${env.GOOGLE_CALLBACK_URL?.replace('/api/auth/google/callback', '') || 'http://localhost:5173'}?error=oauth_failed`);
+    return c.redirect(
+      `${env.GOOGLE_CALLBACK_URL?.replace('/api/auth/google/callback', '') || 'http://localhost:5173'}?error=oauth_failed`,
+    );
   }
 
   deleteCookie(c, 'oauth_state', { path: '/' });
@@ -184,7 +189,7 @@ router.get('/google/callback', async (c) => {
       return c.redirect('http://localhost:5173?error=oauth_failed');
     }
 
-    const tokens = await tokenRes.json() as { access_token: string };
+    const tokens = (await tokenRes.json()) as { access_token: string };
     const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     });
@@ -193,7 +198,7 @@ router.get('/google/callback', async (c) => {
       return c.redirect('http://localhost:5173?error=oauth_failed');
     }
 
-    const googleUser = await userInfoRes.json() as {
+    const googleUser = (await userInfoRes.json()) as {
       id: string;
       email: string;
       name: string;
@@ -205,26 +210,17 @@ router.get('/google/callback', async (c) => {
 
     const frontendUrl = 'http://localhost:5173';
 
-    const [existingUser] = await getDb()
-      .select()
-      .from(users)
-      .where(eq(users.googleId, googleUser.id));
+    const [existingUser] = await getDb().select().from(users).where(eq(users.googleId, googleUser.id));
 
     if (existingUser) {
       await createSession(c, existingUser.id);
       return c.redirect(frontendUrl);
     }
 
-    const [userByEmail] = await getDb()
-      .select()
-      .from(users)
-      .where(eq(users.email, googleUser.email));
+    const [userByEmail] = await getDb().select().from(users).where(eq(users.email, googleUser.email));
 
     if (userByEmail) {
-      await getDb()
-        .update(users)
-        .set({ googleId: googleUser.id })
-        .where(eq(users.id, userByEmail.id));
+      await getDb().update(users).set({ googleId: googleUser.id }).where(eq(users.id, userByEmail.id));
       await createSession(c, userByEmail.id);
       return c.redirect(frontendUrl);
     }
@@ -260,10 +256,7 @@ router.get('/me', async (c) => {
   }
 
   try {
-    const [session] = await getDb()
-      .select()
-      .from(sessions)
-      .where(eq(sessions.id, sid));
+    const [session] = await getDb().select().from(sessions).where(eq(sessions.id, sid));
 
     if (!session || new Date() > session.expiresAt) {
       if (session) {

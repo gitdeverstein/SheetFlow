@@ -18,12 +18,12 @@ sheetflow/
 
 ## Technologies
 
-| Couche | Technologie |
-|---|---|
+| Couche   | Technologie                                                                                      |
+| -------- | ------------------------------------------------------------------------------------------------ |
 | Frontend | React 19, TypeScript, Vite, Zustand 5, Tailwind CSS 4, Framer Motion, Lucide React, react-window |
-| Backend | Hono 4 (Node.js), Drizzle ORM, PostgreSQL, Zod, Pino |
-| Export | jsPDF + jspdf-autotable (PDF), SheetJS / xlsx (Excel) |
-| Monorepo | npm workspaces |
+| Backend  | Hono 4 (Node.js), Drizzle ORM, PostgreSQL, Zod, Pino                                             |
+| Export   | jsPDF + jspdf-autotable (PDF), SheetJS / xlsx (Excel)                                            |
+| Monorepo | npm workspaces                                                                                   |
 
 ## Prérequis
 
@@ -34,6 +34,7 @@ sheetflow/
 ## Installation et configuration
 
 1. **Cloner le dépôt et installer les dépendances :**
+
    ```bash
    git clone <url-du-depot>
    cd sheetflow
@@ -42,6 +43,7 @@ sheetflow/
 
 2. **Configurer l'environnement :**
    Créer `apps/backend/.env` à partir de `.env.example` :
+
    ```env
    DATABASE_URL=postgres://postgres:postgres@localhost:5432/sheetflow
    PORT=3000
@@ -49,6 +51,7 @@ sheetflow/
    ```
 
 3. **Initialiser la base de données :**
+
    ```bash
    npm run db:push -w @sheetflow/db
    npm run db:seed -w @sheetflow/db
@@ -64,6 +67,7 @@ sheetflow/
 ## Fonctionnalités
 
 ### Écran d'accueil et authentification
+
 - Écran de bienvenue avec branding SheetFlow
 - Onglets « Sign in » et « Sign up » avec formulaire dédié
 - Transitions glissantes animées (Framer Motion `AnimatePresence`)
@@ -71,12 +75,14 @@ sheetflow/
 - Mode invité sans authentification
 
 ### CRM (Gestion de la relation client)
+
 - CRUD complet pour les contacts (nom, email, téléphone, entreprise, notes)
 - Suivi du statut : Actif / Prospect / Inactif
 - Édition en ligne via une grille avec listes déroulantes
 - Filtrage et tri des colonnes avec indicateurs visuels
 
 ### Gestion des stocks
+
 - CRUD complet des produits avec SKU, quantité, seuils d'alerte, prix
 - Surveillance des niveaux de stock avec alertes de rupture dans le tableau de bord
 - Déduction automatique des stocks lors de l'acceptation d'un devis
@@ -85,6 +91,7 @@ sheetflow/
 - **Import en masse via CSV** : bouton « Import CSV » dans l'onglet Inventaire — colonnes attendues : `sku`, `name`, `stock`, `alertThreshold`, `price`. Les SKU existants sont mis à jour (upsert), les nouveaux sont créés.
 
 ### Génération de devis
+
 - Création et édition de devis avec lignes dynamiques
 - Recherche et autocomplétion dans les sélecteurs client et produit
 - Prix automatiquement issus du catalogue
@@ -97,6 +104,7 @@ sheetflow/
 - Export Excel (.xlsx avec données structurées)
 
 ### Tableau de bord
+
 - Cartes KPI animées (chiffre d'affaires, nombre de clients, nombre de produits, alertes de stock)
 - **Graphique donut SVG** des statuts de devis (Brouillon / Envoyé / Accepté / Refusé), sans dépendance externe
 - **Badge d'expiration** : les devis dont la date de validité est dépassée affichent un badge « Expired » en rouge
@@ -108,6 +116,7 @@ sheetflow/
 - Squelettes de chargement (skeleton loading) pendant le chargement des données
 
 ### Moteur de formules
+
 - Grille éditable avec modification cellule par cellule
 - Navigation au clavier (flèches et Tab)
 - Moteur de formules prenant en charge les opérations arithmétiques, `SUM`, `MOYENNE`, les références de cellules et les plages
@@ -115,6 +124,7 @@ sheetflow/
 - Graphe de dépendances et recalculs avec débounce
 
 ### Animations et expérience utilisateur
+
 - Transitions fluides entre les écrans (Framer Motion)
 - Apparition graduelle du contenu avec décalage temporel
 - Squelettes de chargement animés (pulse) pour chaque section
@@ -125,19 +135,19 @@ sheetflow/
 
 ## Scripts
 
-| Commande | Description |
-|---|---|
-| `npm run dev` | Lance le backend + frontend simultanément |
-| `npm run build` | Compile tous les paquets pour la production |
-| `npm run db:push` | Pousse le schéma Drizzle vers la base de données |
+| Commande          | Description                                              |
+| ----------------- | -------------------------------------------------------- |
+| `npm run dev`     | Lance le backend + frontend simultanément                |
+| `npm run build`   | Compile tous les paquets pour la production              |
+| `npm run db:push` | Pousse le schéma Drizzle vers la base de données         |
 | `npm run db:seed` | Initialise la base de données avec des données d'exemple |
 
 ## API — Nouveaux endpoints
 
-| Méthode | Route | Description |
-|---|---|---|
-| `POST` | `/api/quotes/:id/duplicate` | Duplique un devis existant en Brouillon |
-| `POST` | `/api/inventory/import` | Import en masse (upsert sur SKU) — body : tableau JSON |
+| Méthode | Route                       | Description                                            |
+| ------- | --------------------------- | ------------------------------------------------------ |
+| `POST`  | `/api/quotes/:id/duplicate` | Duplique un devis existant en Brouillon                |
+| `POST`  | `/api/inventory/import`     | Import en masse (upsert sur SKU) — body : tableau JSON |
 
 ### Format CSV pour l'import inventaire
 

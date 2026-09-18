@@ -5,9 +5,22 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 vi.mock('framer-motion', () => {
   const C = ({ children, className, ...props }: any) => {
     const safe = Object.fromEntries(
-      Object.entries(props).filter(([k]) => k !== 'animate' && k !== 'transition' && k !== 'initial' && k !== 'exit' && k !== 'variants' && k !== 'whileHover' && k !== 'whileTap')
+      Object.entries(props).filter(
+        ([k]) =>
+          k !== 'animate' &&
+          k !== 'transition' &&
+          k !== 'initial' &&
+          k !== 'exit' &&
+          k !== 'variants' &&
+          k !== 'whileHover' &&
+          k !== 'whileTap',
+      ),
     );
-    return <div className={className} {...safe}>{children}</div>;
+    return (
+      <div className={className} {...safe}>
+        {children}
+      </div>
+    );
   };
   return {
     motion: new Proxy({}, { get: () => C }),
@@ -42,7 +55,12 @@ vi.mock('../../store/sheetStore.js', () => ({
       sku: { id: `sku-${item.id}`, raw: item.sku, value: item.sku, error: null },
       name: { id: `name-${item.id}`, raw: item.name, value: item.name, error: null },
       stock: { id: `stock-${item.id}`, raw: String(item.stock), value: item.stock, error: null },
-      alertThreshold: { id: `alertThreshold-${item.id}`, raw: String(item.alertThreshold), value: item.alertThreshold, error: null },
+      alertThreshold: {
+        id: `alertThreshold-${item.id}`,
+        raw: String(item.alertThreshold),
+        value: item.alertThreshold,
+        error: null,
+      },
       price: { id: `price-${item.id}`, raw: String(item.price), value: Number(item.price), error: null },
     },
   })),
@@ -93,23 +111,37 @@ const defaultStore = {
 };
 
 const sampleCustomers = [
-  { id: 'c1', name: 'Alice Smith', email: 'alice@test.com', phone: '555-0100', company: 'Acme', status: 'Active', notes: '' },
+  {
+    id: 'c1',
+    name: 'Alice Smith',
+    email: 'alice@test.com',
+    phone: '555-0100',
+    company: 'Acme',
+    status: 'Active',
+    notes: '',
+  },
   { id: 'c2', name: 'Bob Jones', email: 'bob@test.com', phone: '', company: null, status: 'Lead', notes: '' },
 ];
 
 const sampleInventory = [
   { id: 'i1', sku: 'WGT-001', name: 'Widget Gold', stock: 45, alertThreshold: 10, price: 149.99 },
-  { id: 'i2', sku: 'GDT-001', name: 'Gadget Standard', stock: 8, alertThreshold: 15, price: 249.50 },
+  { id: 'i2', sku: 'GDT-001', name: 'Gadget Standard', stock: 8, alertThreshold: 15, price: 249.5 },
 ];
 
 function mockHooks(overrides?: {
-  customers?: any[]; customersLoading?: boolean;
-  inventory?: any[]; inventoryLoading?: boolean;
+  customers?: any[];
+  customersLoading?: boolean;
+  inventory?: any[];
+  inventoryLoading?: boolean;
   store?: Record<string, any>;
 }) {
-  const { customers = sampleCustomers, customersLoading = false,
-          inventory = sampleInventory, inventoryLoading = false,
-          store = {} } = overrides ?? {};
+  const {
+    customers = sampleCustomers,
+    customersLoading = false,
+    inventory = sampleInventory,
+    inventoryLoading = false,
+    store = {},
+  } = overrides ?? {};
   vi.mocked(useCustomers).mockReturnValue({ data: customers, isLoading: customersLoading } as any);
   vi.mocked(useInventory).mockReturnValue({ data: inventory, isLoading: inventoryLoading } as any);
   vi.mocked(useSheetStore).mockReturnValue({ ...defaultStore, ...store });
@@ -224,7 +256,7 @@ describe('SpreadsheetGrid — CRM Tab', () => {
     });
 
     // Click the Delete button in the confirmation modal
-    const modalButtons = screen.getAllByRole('button').filter(b => b.textContent === 'Delete');
+    const modalButtons = screen.getAllByRole('button').filter((b) => b.textContent === 'Delete');
     expect(modalButtons.length).toBeGreaterThanOrEqual(1);
     fireEvent.click(modalButtons[0]);
 

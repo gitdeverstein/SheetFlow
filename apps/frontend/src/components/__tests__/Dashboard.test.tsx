@@ -5,9 +5,22 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 vi.mock('framer-motion', () => {
   const C = ({ children, className, ...props }: any) => {
     const safe = Object.fromEntries(
-      Object.entries(props).filter(([k]) => k !== 'animate' && k !== 'transition' && k !== 'initial' && k !== 'exit' && k !== 'variants' && k !== 'whileHover' && k !== 'whileTap')
+      Object.entries(props).filter(
+        ([k]) =>
+          k !== 'animate' &&
+          k !== 'transition' &&
+          k !== 'initial' &&
+          k !== 'exit' &&
+          k !== 'variants' &&
+          k !== 'whileHover' &&
+          k !== 'whileTap',
+      ),
     );
-    return <div className={className} {...safe}>{children}</div>;
+    return (
+      <div className={className} {...safe}>
+        {children}
+      </div>
+    );
   };
   return {
     motion: new Proxy({}, { get: () => C }),
@@ -70,20 +83,44 @@ const sampleInventory = [
 ];
 
 const sampleQuotes = [
-  { id: 'q1', quoteNumber: 'QT-001', customerName: 'Acme Corp', status: 'Draft', total: '100.00', customerId: 'c1', validUntil: '2026-12-31' },
-  { id: 'q2', quoteNumber: 'QT-002', customerName: 'Beta Inc', status: 'Accepted', total: '500.00', customerId: 'c2', validUntil: '2026-01-01' },
+  {
+    id: 'q1',
+    quoteNumber: 'QT-001',
+    customerName: 'Acme Corp',
+    status: 'Draft',
+    total: '100.00',
+    customerId: 'c1',
+    validUntil: '2026-12-31',
+  },
+  {
+    id: 'q2',
+    quoteNumber: 'QT-002',
+    customerName: 'Beta Inc',
+    status: 'Accepted',
+    total: '500.00',
+    customerId: 'c2',
+    validUntil: '2026-01-01',
+  },
 ];
 
 function mockAllHooks(overrides?: {
-  customers?: any[]; customersLoading?: boolean;
-  inventory?: any[]; inventoryLoading?: boolean;
-  quotes?: any[]; quotesLoading?: boolean;
+  customers?: any[];
+  customersLoading?: boolean;
+  inventory?: any[];
+  inventoryLoading?: boolean;
+  quotes?: any[];
+  quotesLoading?: boolean;
   store?: Record<string, any>;
 }) {
-  const { customers = sampleCustomers, customersLoading = false,
-          inventory = sampleInventory, inventoryLoading = false,
-          quotes = sampleQuotes, quotesLoading = false,
-          store = {} } = overrides ?? {};
+  const {
+    customers = sampleCustomers,
+    customersLoading = false,
+    inventory = sampleInventory,
+    inventoryLoading = false,
+    quotes = sampleQuotes,
+    quotesLoading = false,
+    store = {},
+  } = overrides ?? {};
 
   vi.mocked(useCustomers).mockReturnValue({ data: customers, isLoading: customersLoading } as any);
   vi.mocked(useInventory).mockReturnValue({ data: inventory, isLoading: inventoryLoading } as any);
@@ -198,7 +235,9 @@ describe('Dashboard', () => {
     render(<Dashboard />);
 
     // Find the Draft StatusPill button (it's the one with the ▾ dropdown indicator)
-    const draftButtons = screen.getAllByRole('button').filter(b => b.textContent?.includes('Draft') && b.textContent?.includes('▾'));
+    const draftButtons = screen
+      .getAllByRole('button')
+      .filter((b) => b.textContent?.includes('Draft') && b.textContent?.includes('▾'));
     expect(draftButtons.length).toBeGreaterThanOrEqual(1);
     fireEvent.click(draftButtons[0]);
 
@@ -217,7 +256,15 @@ describe('Dashboard', () => {
   it('shows expired badge for past validUntil', () => {
     mockAllHooks({
       quotes: [
-        { id: 'q1', quoteNumber: 'QT-001', customerName: 'Acme', status: 'Draft', total: '100', customerId: 'c1', validUntil: '2020-01-01' },
+        {
+          id: 'q1',
+          quoteNumber: 'QT-001',
+          customerName: 'Acme',
+          status: 'Draft',
+          total: '100',
+          customerId: 'c1',
+          validUntil: '2020-01-01',
+        },
       ],
     });
     render(<Dashboard />);
@@ -227,7 +274,15 @@ describe('Dashboard', () => {
   it('hides expiry badge for accepted/rejected quotes', () => {
     mockAllHooks({
       quotes: [
-        { id: 'q2', quoteNumber: 'QT-002', customerName: 'Beta', status: 'Accepted', total: '500', customerId: 'c2', validUntil: '2020-01-01' },
+        {
+          id: 'q2',
+          quoteNumber: 'QT-002',
+          customerName: 'Beta',
+          status: 'Accepted',
+          total: '500',
+          customerId: 'c2',
+          validUntil: '2020-01-01',
+        },
       ],
     });
     render(<Dashboard />);
@@ -237,7 +292,7 @@ describe('Dashboard', () => {
   // ── Action buttons ─────────────────────────────────────────────────────
   it('renders Edit button and calls setEditingQuote', () => {
     render(<Dashboard />);
-    const editButtons = screen.getAllByRole('button').filter(b => b.getAttribute('title') === 'Edit');
+    const editButtons = screen.getAllByRole('button').filter((b) => b.getAttribute('title') === 'Edit');
     expect(editButtons.length).toBeGreaterThanOrEqual(1);
     fireEvent.click(editButtons[0]);
     expect(defaultStore.setEditingQuote).toHaveBeenCalledWith('q1');
@@ -248,7 +303,7 @@ describe('Dashboard', () => {
     const deleteQuote = vi.fn().mockResolvedValue(undefined);
     mockAllHooks({ store: { deleteQuote } });
     render(<Dashboard />);
-    const deleteButtons = screen.getAllByRole('button').filter(b => b.getAttribute('title') === 'Delete');
+    const deleteButtons = screen.getAllByRole('button').filter((b) => b.getAttribute('title') === 'Delete');
     expect(deleteButtons.length).toBeGreaterThanOrEqual(1);
 
     const originalConfirm = window.confirm;
@@ -269,9 +324,7 @@ describe('Dashboard', () => {
 
   it('shows healthy message when all stocks are sufficient', () => {
     mockAllHooks({
-      inventory: [
-        { id: 'i1', sku: 'WIDGET', name: 'Widget', stock: 10, alertThreshold: 5, price: 19.99 },
-      ],
+      inventory: [{ id: 'i1', sku: 'WIDGET', name: 'Widget', stock: 10, alertThreshold: 5, price: 19.99 }],
     });
     render(<Dashboard />);
     expect(screen.getByText('All item stocks are healthy!')).toBeInTheDocument();
@@ -296,7 +349,7 @@ describe('Dashboard', () => {
     const duplicateQuote = vi.fn().mockResolvedValue(undefined);
     mockAllHooks({ store: { duplicateQuote } });
     render(<Dashboard />);
-    const dupButtons = screen.getAllByRole('button').filter(b => b.getAttribute('title') === 'Duplicate as Draft');
+    const dupButtons = screen.getAllByRole('button').filter((b) => b.getAttribute('title') === 'Duplicate as Draft');
     expect(dupButtons.length).toBeGreaterThanOrEqual(1);
     fireEvent.click(dupButtons[0]);
     await waitFor(() => {

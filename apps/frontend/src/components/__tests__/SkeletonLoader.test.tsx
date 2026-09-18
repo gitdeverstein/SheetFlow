@@ -8,7 +8,11 @@ vi.mock('framer-motion', () => ({
         if (!k.startsWith('on') && k !== 'animate' && k !== 'transition') a[k] = rest[k];
         return a;
       }, {});
-      return <div className={className} {...restAttrs}>{children}</div>;
+      return (
+        <div className={className} {...restAttrs}>
+          {children}
+        </div>
+      );
     },
   },
 }));
