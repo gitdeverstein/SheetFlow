@@ -8,12 +8,18 @@ test.describe('Quote Management', () => {
 
   test('should navigate to quote generator tab', async ({ page }) => {
     // Click on the quotes tab (likely a nav item or button)
-    await page.getByRole('button', { name: /quotes/i }).first().click();
+    await page
+      .getByRole('button', { name: /quotes/i })
+      .first()
+      .click();
     await expect(page.getByText('Create New Quote')).toBeVisible();
   });
 
   test('should render the quote form', async ({ page }) => {
-    await page.getByRole('button', { name: /quotes/i }).first().click();
+    await page
+      .getByRole('button', { name: /quotes/i })
+      .first()
+      .click();
 
     await expect(page.getByPlaceholder('Search customers...')).toBeVisible();
     await expect(page.getByText('Add Item')).toBeVisible();
@@ -22,7 +28,10 @@ test.describe('Quote Management', () => {
   });
 
   test('should select a customer and see options', async ({ page }) => {
-    await page.getByRole('button', { name: /quotes/i }).first().click();
+    await page
+      .getByRole('button', { name: /quotes/i })
+      .first()
+      .click();
 
     // The customer dropdown should have seed data
     const customerSelect = page.locator('select').first();
@@ -32,7 +41,10 @@ test.describe('Quote Management', () => {
   });
 
   test('should add and remove line items', async ({ page }) => {
-    await page.getByRole('button', { name: /quotes/i }).first().click();
+    await page
+      .getByRole('button', { name: /quotes/i })
+      .first()
+      .click();
 
     // Add first item
     await page.getByText('Add Item').click();
@@ -53,7 +65,10 @@ test.describe('Quote Management', () => {
   });
 
   test('should calculate totals when items are added', async ({ page }) => {
-    await page.getByRole('button', { name: /quotes/i }).first().click();
+    await page
+      .getByRole('button', { name: /quotes/i })
+      .first()
+      .click();
 
     // Initially shows $0.00
     await expect(page.getByText('$0.00')).toBeVisible();

@@ -17,7 +17,6 @@ type StoreGet = () => {
 type SheetStoreState = import('./sheetStore.js').SheetStoreState;
 
 export const createCustomerSlice: StateCreator<SheetStoreState, [], [], CustomerSlice> = (_, get: StoreGet) => ({
-
   addCustomer: async (data) => {
     try {
       await apiFetch(`${API_BASE}/customers`, {
