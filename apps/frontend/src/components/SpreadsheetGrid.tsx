@@ -267,6 +267,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                     itemSize={48}
                     width="100%"
                     overscanCount={5}
+                    itemKey={(index) => paginatedRows[index]?.id ?? index}
                   >
                     {({ index, style }) => {
                       const row = paginatedRows[index];
