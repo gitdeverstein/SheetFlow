@@ -23,11 +23,10 @@ export async function login(page: Page, email: string, password: string): Promis
 
   await emailInput.fill(email);
   await page.locator('input[type="password"]').fill(password);
-  await page.getByRole('button', { name: /sign in|login|log in/i }).click();
+  await page.locator('form').getByRole('button', { name: /sign in|login|log in/i }).click();
 
-  // Wait for redirect to dashboard
-  await page.waitForURL(/dashboard/);
-  await page.waitForLoadState('networkidle');
+  // Wait for dashboard content (SheetFlow single page app uses activeTab without URL route change)
+  await page.waitForSelector('text=Real-time KPIs');
 }
 
 /**
