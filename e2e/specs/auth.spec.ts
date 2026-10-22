@@ -26,7 +26,7 @@ test.describe('Authentication', () => {
 
     await page.locator('input[type="email"]').fill('wrong@email.com');
     await page.locator('input[type="password"]').fill('wrongpassword');
-    await page.getByRole('button', { name: /sign in/i }).click();
+    await page.locator('form').getByRole('button', { name: /sign in/i }).click();
 
     // Should still be on login page with an error message
     await expect(page.locator('input[type="email"]')).toBeVisible();
