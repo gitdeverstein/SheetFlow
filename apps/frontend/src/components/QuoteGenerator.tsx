@@ -21,8 +21,6 @@ export default function QuoteGenerator() {
   const [validUntil, setValidUntil] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [customerSearch, setCustomerSearch] = useState('');
-  const [productSearch, setProductSearch] = useState<string[]>([]);
   const [loadingQuote, setLoadingQuote] = useState(false);
 
   // Load quote data when editing
@@ -264,18 +262,8 @@ export default function QuoteGenerator() {
                           required
                           aria-label={`Select product for item ${index + 1}`}
                           value={item.productId}
-                          onChange={(e) => { handleProductChange(index, e.target.value); const copy = [...productSearch]; copy[index] = ''; setProductSearch(copy); }}
-                          className="w-full bg-slate-950 border border-slate-800/80 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-brand-500"
-                        >
-                          <option value="">Select Product...</option>
-                          {inventory
-                            .filter((p) => !productSearch[index] || p.name.toLowerCase().includes(productSearch[index].toLowerCase()) || p.sku.toLowerCase().includes(productSearch[index].toLowerCase()))
-                            .map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name} - ${Number(p.price).toFixed(2)} ({p.stock} left)
-                            </option>
-                          ))}
-                        </select>
+                          onChange={(val) => handleProductChange(index, val)}
+                        />
                       </div>
 
                       {/* Quantity */}

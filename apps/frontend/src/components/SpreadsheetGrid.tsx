@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, memo } from 'react';
 import { useSheetStore, buildCrmRow, buildInvRow } from '../store/sheetStore.js';
 import { useCustomers } from '../hooks/useCustomers.js';
 import { useInventory } from '../hooks/useInventory.js';
@@ -111,21 +111,20 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
-    const text = await file.text();
-    const lines = text.trim().split('\n').filter(Boolean);
-    if (lines.length < 2) { useSheetStore.getState().addToast('CSV must have a header and at least one row', 'error'); return; }
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/\s+/g, ''));
-    const missing = ['sku', 'name', 'stock', 'alertthreshold', 'price'].filter(r => !headers.includes(r));
-    if (missing.length > 0) { useSheetStore.getState().addToast(`CSV missing columns: ${missing.join(', ')}`, 'error'); return; }
-    const parsed = lines.slice(1).map(line => {
-      const vals = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-      const get = (k: string) => vals[headers.indexOf(k)] ?? '';
-      return { sku: get('sku'), name: get('name'), stock: parseInt(get('stock'), 10) || 0, alertThreshold: parseInt(get('alertthreshold'), 10) || 0, price: parseFloat(get('price')) || 0 };
-    }).filter(r => r.sku && r.name && r.price > 0);
-    if (parsed.length === 0) { useSheetStore.getState().addToast('No valid rows found in CSV', 'error'); return; }
+
     setImporting(true);
-    await bulkImportInventory(parsed);
-    setImporting(false);
+    try {
+      const parsed = await parseInventoryCsv(file);
+      if (parsed.length === 0) {
+        useSheetStore.getState().addToast('No valid rows found in CSV', 'error');
+      } else {
+        await bulkImportInventory(parsed);
+      }
+    } catch (err: unknown) {
+      useSheetStore.getState().addToast(err instanceof Error ? err.message : 'CSV import failed', 'error');
+    } finally {
+      setImporting(false);
+    }
   };
 
   return (
@@ -201,11 +200,12 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
               style={{ gridTemplateColumns: `repeat(${columns.length}, 1fr) 100px` }}>
               {columns.map((col) => (
                 <div key={col.id} className="p-2 border-r border-slate-800/50 relative flex items-center">
-                  <Search size={12} className="absolute left-4 text-slate-600" />
-                  <input
-                    type="text" placeholder="Filter..." value={filters[col.id] || ''}
+                  <Search size={12} className="absolute left-4 text-slate-600 z-10" />
+                  <Input
+                    placeholder="Filter..."
+                    value={filters[col.id] || ''}
                     onChange={(e) => setFilter(col.id, e.target.value)}
-                    className="w-full bg-slate-900/80 border border-slate-800/60 rounded-lg pl-7 pr-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-brand-500 placeholder-slate-600"
+                    className="pl-7 py-1 text-xs"
                   />
                 </div>
               ))}
@@ -270,46 +270,21 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                             const isEditing = editingCell?.rowId === row.id && editingCell?.colId === col.id;
                             const cellKey = `${col.id}-${row.id}`;
                             const isHighlighted = cellHighlight[cellKey];
-                            const hasFormula = typeof cell?.raw === 'string' && cell.raw.startsWith('=');
                             return (
-                              <div
+                              <GridCell
                                 key={col.id}
-                                onDoubleClick={() => handleCellClick(row.id, col.id, String(cell?.raw ?? ''))}
-                                className={`p-3 text-sm border-r border-slate-800/40 flex items-center min-h-[48px] select-none transition-all duration-300 cursor-pointer relative
-                                  ${isHighlighted ? 'bg-blue-500/20 border-blue-500/50 shadow-inner' : ''}
-                                  ${hasFormula && !isEditing ? 'text-cyan-400 font-medium' : 'text-slate-300'}`}
-                              >
-                                {col.type === 'select' && col.options ? (
-                                  <select
-                                    value={String(cell?.value ?? '')}
-                                    onChange={(e) => { updateSpreadsheetCell(tab, row.id, col.id, e.target.value); saveSpreadsheetRow(tab, row.id); }}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="w-full bg-slate-900 border border-slate-700/60 text-xs rounded-lg px-2 py-1.5 text-slate-200 focus:outline-none focus:border-brand-500 cursor-pointer"
-                                  >
-                                    {col.options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-                                  </select>
-                                ) : isEditing ? (
-                                  <input
-                                    ref={inputRef}
-                                    type="text" value={editValue}
-                                    onChange={(e) => setEditValue(e.target.value)}
-                                    onBlur={() => handleCellBlur(row.id, col.id)}
-                                    onKeyDown={(e) => handleKeyDown(e, row.id, col.id)}
-                                    className="w-full h-full bg-slate-900 border border-brand-500 rounded px-2 py-1 text-sm text-white focus:outline-none absolute inset-1 z-10 font-mono"
-                                  />
-                                ) : (
-                                  <div className="w-full flex items-center justify-between">
-                                    <span className="truncate">
-                                      {cell?.error
-                                        ? <span className="text-rose-400 flex items-center gap-1 text-xs"><AlertCircle size={12} />{cell.error}</span>
-                                        : (cell?.value ?? '')}
-                                    </span>
-                                    {hasFormula && (
-                                      <span className="text-[9px] px-1 bg-cyan-500/10 text-cyan-400/80 rounded border border-cyan-500/20 opacity-0 group-hover:opacity-100 transition-opacity font-mono">fx</span>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
+                                col={col}
+                                cell={cell}
+                                isEditing={isEditing}
+                                isHighlighted={isHighlighted}
+                                editValue={editValue}
+                                onEdit={(val) => setEditValue(val)}
+                                onBlur={() => handleCellBlur(row.id, col.id)}
+                                onKeyDown={(e) => handleKeyDown(e, row.id, col.id)}
+                                onClick={() => handleCellClick(row.id, col.id, String(cell?.raw ?? ''))}
+                                updateCell={(val) => { updateSpreadsheetCell(tab, row.id, col.id, val); saveSpreadsheetRow(tab, row.id); }}
+                                inputRef={isEditing ? (inputRef as React.RefObject<HTMLInputElement>) : null}
+                              />
                             );
                           })}
 
@@ -387,3 +362,65 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
     </div>
   );
 }
+
+interface GridCellProps {
+  col: any;
+  cell: any;
+  isEditing: boolean;
+  isHighlighted: boolean;
+  editValue: string;
+  onEdit: (val: string) => void;
+  onBlur: () => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+  onClick: () => void;
+  updateCell: (val: string) => void;
+  inputRef: React.RefObject<HTMLInputElement> | null;
+}
+
+const GridCell = memo(({
+  col, cell, isEditing, isHighlighted, editValue, onEdit, onBlur, onKeyDown, onClick, updateCell, inputRef
+}: GridCellProps) => {
+  const hasFormula = typeof cell?.raw === 'string' && cell.raw.startsWith('=');
+
+  return (
+    <div
+      onDoubleClick={onClick}
+      className={`p-3 text-sm border-r border-slate-800/40 flex items-center min-h-[48px] select-none transition-all duration-300 cursor-pointer relative
+        ${isHighlighted ? 'bg-blue-500/20 border-blue-500/50 shadow-inner' : ''}
+        ${hasFormula && !isEditing ? 'text-cyan-400 font-medium' : 'text-slate-300'}`}
+    >
+      {col.type === 'select' && col.options ? (
+        <select
+          value={String(cell?.value ?? '')}
+          onChange={(e) => updateCell(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full bg-slate-900 border border-slate-700/60 text-xs rounded-lg px-2 py-1.5 text-slate-200 focus:outline-none focus:border-brand-500 cursor-pointer"
+        >
+          {col.options.map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
+        </select>
+      ) : isEditing ? (
+        <input
+          ref={inputRef}
+          type="text" value={editValue}
+          onChange={(e) => onEdit(e.target.value)}
+          onBlur={onBlur}
+          onKeyDown={onKeyDown}
+          className="w-full h-full bg-slate-900 border border-brand-500 rounded px-2 py-1 text-sm text-white focus:outline-none absolute inset-1 z-10 font-mono"
+        />
+      ) : (
+        <div className="w-full flex items-center justify-between">
+          <span className="truncate">
+            {cell?.error
+              ? <span className="text-rose-400 flex items-center gap-1 text-xs"><AlertCircle size={12} />{cell.error}</span>
+              : (cell?.value ?? '')}
+          </span>
+          {hasFormula && (
+            <span className="text-[9px] px-1 bg-cyan-500/10 text-cyan-400/80 rounded border border-cyan-500/20 opacity-0 group-hover:opacity-100 transition-opacity font-mono">fx</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
+
+GridCell.displayName = 'GridCell';
