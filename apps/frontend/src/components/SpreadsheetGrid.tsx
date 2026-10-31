@@ -185,7 +185,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
               {columns.map((col) => (
                 <div key={col.id} className="p-3 text-sm font-semibold text-slate-300 flex items-center justify-between border-r border-slate-800/50">
                   <span className="truncate">{col.name}</span>
-                  <button onClick={() => setSort(col.id)} className="p-1 hover:bg-slate-800 text-slate-500 hover:text-slate-200 rounded transition-colors">
+                  <button onClick={() => setSort(col.id)} className="p-1 hover:bg-slate-800 text-slate-500 hover:text-slate-200 rounded transition-colors" aria-label={`Sort by ${col.name}`}>
                     {sort?.column === col.id
                       ? <span className="text-brand-400 text-xs font-bold">{sort.direction === 'asc' ? '▲' : '▼'}</span>
                       : <ArrowUpDown size={13} />}
@@ -296,6 +296,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                               aria-label="Save row"
                               className="p-1.5 text-emerald-400 rounded-lg transition-colors hover:bg-emerald-500/10 disabled:opacity-50"
                               title="Save"
+                              aria-label={`Save row ${index + 1}`}
                             >
                               {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                             </button>
@@ -304,6 +305,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                               aria-label="Delete row"
                               className="p-1.5 text-rose-400 rounded-lg transition-colors hover:bg-rose-500/10"
                               title="Delete"
+                              aria-label={`Delete row ${index + 1}`}
                             >
                               <Trash2 size={14} />
                             </button>
