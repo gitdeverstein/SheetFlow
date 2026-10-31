@@ -45,7 +45,7 @@ export const useSheetStore = create<SheetStoreState>()((...args) => {
     filters: {},
     sort: null,
 
-    setActiveTab: (tab) => set({ activeTab: tab, filters: {}, sort: null }),
+    setActiveTab: (tab) => set({ activeTab: tab }),
 
     addToast: (text, type = 'success', undoAction) => {
       const id = crypto.randomUUID();

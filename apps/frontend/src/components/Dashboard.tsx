@@ -1,149 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSheetStore } from '../store/sheetStore.js';
 import { useCustomers } from '../hooks/useCustomers.js';
 import { useInventory } from '../hooks/useInventory.js';
 import { useQuotes } from '../hooks/useQuotes.js';
-import { Users, Package, FileText, AlertTriangle, Download, FileSpreadsheet, Loader2, Trash2, Edit3, Copy, MoreHorizontal } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Users, Package, FileText, AlertTriangle, Download, FileSpreadsheet, Loader2, Trash2, Edit3, Copy } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { QUOTE_STATUS_TRANSITIONS } from '@sheetflow/shared';
 import AnimatedSection from './AnimatedSection.js';
 import SkeletonLoader from './SkeletonLoader.js';
-
-// ── SVG Donut Chart ──────────────────────────────────────────────────────────
-const STATUS_COLORS: Record<string, string> = {
-  Draft: '#64748b',
-  Sent: '#3b82f6',
-  Accepted: '#10b981',
-  Rejected: '#f43f5e',
-};
-
-function DonutChart({ data }: { data: Record<string, number> }) {
-  const total = Object.values(data).reduce((s, v) => s + v, 0);
-  if (total === 0) return <p className="text-slate-500 text-sm text-center py-4">No quotes yet.</p>;
-
-  const r = 40;
-  const cx = 60;
-  const cy = 60;
-  const circumference = 2 * Math.PI * r;
-
-  let offset = 0;
-  const slices = Object.entries(data).map(([status, count]) => {
-    const pct = count / total;
-    const dash = pct * circumference;
-    const slice = { status, count, dash, offset, color: STATUS_COLORS[status] ?? '#94a3b8' };
-    offset += dash;
-    return slice;
-  });
-
-  return (
-    <div className="flex items-center gap-6">
-      <svg width="120" height="120" viewBox="0 0 120 120">
-        {slices.map((s) => (
-          <circle
-            key={s.status}
-            cx={cx} cy={cy} r={r}
-            fill="none"
-            stroke={s.color}
-            strokeWidth="18"
-            strokeDasharray={`${s.dash} ${circumference - s.dash}`}
-            strokeDashoffset={-s.offset + circumference / 4}
-            style={{ transform: 'rotate(-90deg)', transformOrigin: '60px 60px' }}
-          />
-        ))}
-        <text x={cx} y={cy + 5} textAnchor="middle" fill="currentColor" className="donut-label" fontSize="14" fontWeight="bold">{total}</text>
-      </svg>
-      <div className="space-y-1.5">
-        {slices.map((s) => (
-          <div key={s.status} className="flex items-center gap-2 text-xs">
-            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
-            <span className="text-slate-300">{s.status}</span>
-            <span className="text-slate-500 ml-auto pl-3 font-mono">{s.count}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Status pill ──────────────────────────────────────────────────────────────
-const STATUS_PILL: Record<string, string> = {
-  Draft:    'bg-slate-700/60 text-slate-300 border-slate-600/50',
-  Sent:     'bg-blue-500/15 text-blue-300 border-blue-500/30',
-  Accepted: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-  Rejected: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
-};
-
-function StatusPill({ status, transitions, onChange }: { status: string; transitions: readonly string[]; onChange: (s: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-  return (
-    <div ref={ref} className="relative inline-block">
-      <button
-        onClick={() => transitions.length > 0 && setOpen(o => !o)}
-        className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full border transition-colors ${STATUS_PILL[status] ?? 'bg-slate-700 text-slate-300 border-slate-600'} ${transitions.length > 0 ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
-      >
-        <span className={`w-1.5 h-1.5 rounded-full ${STATUS_COLORS[status] ? '' : 'bg-slate-400'}`} style={{ backgroundColor: STATUS_COLORS[status] }} />
-        {status}
-        {transitions.length > 0 && <span className="opacity-60">▾</span>}
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-            className="absolute left-0 top-full mt-1 z-30 bg-slate-900 border border-slate-700 rounded-xl shadow-xl min-w-[110px] overflow-hidden">
-            {transitions.map(s => (
-              <button key={s} onClick={() => { onChange(s); setOpen(false); }}
-                className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-slate-800 transition-colors flex items-center gap-2 ${STATUS_PILL[s] ? 'text-slate-200' : 'text-slate-300'}`}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[s] }} />{s}
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-// ── Overflow menu ─────────────────────────────────────────────────────────────
-function OverflowMenu({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-  return (
-    <div ref={ref} className="relative sm:hidden">
-      <button onClick={() => setOpen(o => !o)} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
-        <MoreHorizontal size={16} />
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div initial={{ opacity: 0, scale: 0.95, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -4 }}
-            className="absolute right-0 top-full mt-1 z-30 bg-slate-900 border border-slate-700 rounded-xl shadow-xl min-w-[140px] overflow-hidden"
-            onClick={() => setOpen(false)}>
-            {children}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-function ExpiryBadge({ validUntil, status }: { validUntil?: string | null; status: string }) {
-  if (!validUntil || status === 'Accepted' || status === 'Rejected') return null;
-  const expired = new Date(validUntil) < new Date();
-  if (!expired) return null;
-  return (
-    <span className="ml-1 px-1.5 py-0.5 text-[10px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30 rounded">
-      Expired
-    </span>
-  );
-}
+import { DonutChart } from './ui/DonutChart.js';
+import { StatusPill } from './ui/StatusPill.js';
+import { OverflowMenu } from './ui/OverflowMenu.js';
+import { ExpiryBadge } from './ui/ExpiryBadge.js';
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
 export default function Dashboard() {
@@ -163,6 +31,8 @@ export default function Dashboard() {
 
   const [animatedRevenue, setAnimatedRevenue] = useState(0);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [statusConfirm, setStatusConfirm] = useState<{ id: string; status: string } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const totalCustomers = customers.length;
   const totalProducts = inventory.length;
@@ -226,15 +96,17 @@ export default function Dashboard() {
           className="grid grid-cols-1 md:grid-cols-4 gap-6"
         >
           {[
-            { label: 'Accepted Revenue', value: `$${animatedRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, sub: 'Real-time pipeline', color: 'emerald', icon: <FileText size={20} /> },
-            { label: 'Total Customers', value: totalCustomers, sub: 'Active CRM profiles', color: 'brand', icon: <Users size={20} /> },
-            { label: 'Catalog Products', value: totalProducts, sub: 'Unique SKUs tracked', color: 'purple', icon: <Package size={20} /> },
-            { label: 'Stock Alerts', value: lowStockAlerts, sub: 'Items below threshold', color: 'amber', icon: <AlertTriangle size={20} />, warn: lowStockAlerts > 0 },
+            { label: 'Accepted Revenue', value: `$${animatedRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, sub: 'Real-time pipeline', color: 'emerald', icon: <FileText size={20} />, action: () => setActiveTab('quotes') },
+            { label: 'Total Customers', value: totalCustomers, sub: 'Active CRM profiles', color: 'brand', icon: <Users size={20} />, action: () => setActiveTab('crm') },
+            { label: 'Catalog Products', value: totalProducts, sub: 'Unique SKUs tracked', color: 'purple', icon: <Package size={20} />, action: () => setActiveTab('inventory') },
+            { label: 'Stock Alerts', value: lowStockAlerts, sub: 'Items below threshold', color: 'amber', icon: <AlertTriangle size={20} />, warn: lowStockAlerts > 0, action: () => { useSheetStore.getState().setFilter('stock', '<10'); setActiveTab('inventory'); } },
           ].map((card, i) => (
             <AnimatedSection key={card.label} delay={i * 0.1}>
               <motion.div
                 variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
-                className="glass-panel glass-panel-hover p-6 rounded-2xl"
+                whileHover={{ y: -4 }}
+                onClick={card.action}
+                className="glass-panel glass-panel-hover p-6 rounded-2xl cursor-pointer group"
               >
                 <div className="flex justify-between items-center">
                   <span className="text-slate-400 text-sm font-medium">{card.label}</span>
@@ -280,9 +152,11 @@ export default function Dashboard() {
                             status={quote.status}
                             transitions={QUOTE_STATUS_TRANSITIONS[quote.status] ?? []}
                             onChange={(newStatus) => {
-                              if ((newStatus === 'Accepted' || quote.status === 'Accepted') &&
-                                !window.confirm(`Change status to "${newStatus}"? This will adjust inventory stock.`)) return;
-                              updateQuoteStatus(quote.id, newStatus);
+                              if (newStatus === 'Accepted' || quote.status === 'Accepted') {
+                                setStatusConfirm({ id: quote.id, status: newStatus });
+                              } else {
+                                updateQuoteStatus(quote.id, newStatus);
+                              }
                             }}
                           />
                           <ExpiryBadge validUntil={quote.validUntil} status={quote.status} />
@@ -292,24 +166,27 @@ export default function Dashboard() {
                         {/* Desktop actions */}
                         <div className="hidden sm:flex items-center justify-center gap-1.5 flex-wrap">
                           <button onClick={() => { setEditingQuote(quote.id); setActiveTab('quotes'); }}
+                            aria-label="Edit quote"
                             className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors" title="Edit">
                             <Edit3 size={15} />
                           </button>
                           <button onClick={() => handleDuplicate(quote.id)} disabled={duplicatingId === quote.id}
+                            aria-label="Duplicate quote"
                             className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors disabled:opacity-50" title="Duplicate as Draft">
                             {duplicatingId === quote.id ? <Loader2 size={15} className="animate-spin" /> : <Copy size={15} />}
                           </button>
                           <button onClick={() => generatePdf(quote.id)} disabled={generatingPdfId === quote.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-brand-500 hover:bg-brand-600 text-white transition-colors disabled:opacity-50">
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-brand-500 hover:bg-brand-600 text-white transition-colors disabled:opacity-50" aria-label={`Download quote ${quote.quoteNumber} as PDF`}>
                             {generatingPdfId === quote.id ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
                             <span>PDF</span>
                           </button>
                           <button onClick={() => exportExcel(quote.id)} disabled={exportingExcelId === quote.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50">
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50" aria-label={`Download quote ${quote.quoteNumber} as Excel`}>
                             {exportingExcelId === quote.id ? <Loader2 size={12} className="animate-spin" /> : <FileSpreadsheet size={12} />}
                             <span>XLS</span>
                           </button>
                           <button onClick={() => { if (confirm('Delete this quote? Stock will be restored if accepted.')) deleteQuote(quote.id); }}
+                            aria-label="Delete quote"
                             className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors" title="Delete">
                             <Trash2 size={15} />
                           </button>
@@ -320,7 +197,7 @@ export default function Dashboard() {
                           <button onClick={() => handleDuplicate(quote.id)} className="w-full text-left px-3 py-2 text-xs text-violet-400 hover:bg-slate-800 flex items-center gap-2"><Copy size={13} /> Duplicate</button>
                           <button onClick={() => generatePdf(quote.id)} className="w-full text-left px-3 py-2 text-xs text-brand-400 hover:bg-slate-800 flex items-center gap-2"><Download size={13} /> Export PDF</button>
                           <button onClick={() => exportExcel(quote.id)} className="w-full text-left px-3 py-2 text-xs text-emerald-400 hover:bg-slate-800 flex items-center gap-2"><FileSpreadsheet size={13} /> Export Excel</button>
-                          <button onClick={() => { if (confirm('Delete this quote?')) deleteQuote(quote.id); }} className="w-full text-left px-3 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center gap-2"><Trash2 size={13} /> Delete</button>
+                          <button onClick={() => setDeleteConfirm(quote.id)} className="w-full text-left px-3 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center gap-2"><Trash2 size={13} /> Delete</button>
                         </OverflowMenu>
                       </td>
                     </tr>
@@ -403,6 +280,45 @@ export default function Dashboard() {
           </AnimatedSection>
         </div>
       </div>
+
+      {/* Confirmation Modals */}
+      <Modal
+        isOpen={!!statusConfirm}
+        onClose={() => setStatusConfirm(null)}
+        title="Confirm Status Change"
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setStatusConfirm(null)}>Cancel</Button>
+            <Button variant="primary" onClick={() => {
+              if (statusConfirm) {
+                updateQuoteStatus(statusConfirm.id, statusConfirm.status);
+                setStatusConfirm(null);
+              }
+            }}>Confirm</Button>
+          </>
+        )}
+      >
+        <p>Changing the status to <strong>{statusConfirm?.status}</strong> will adjust the inventory stock. Do you want to proceed?</p>
+      </Modal>
+
+      <Modal
+        isOpen={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        title="Delete Quote"
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+            <Button variant="danger" onClick={() => {
+              if (deleteConfirm) {
+                deleteQuote(deleteConfirm);
+                setDeleteConfirm(null);
+              }
+            }}>Delete</Button>
+          </>
+        )}
+      >
+        <p>Are you sure you want to delete this quote? Stock will be restored if it was already accepted.</p>
+      </Modal>
     </div>
   );
 }

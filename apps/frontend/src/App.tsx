@@ -1,14 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useSheetStore } from './store/sheetStore.js';
 import { login, register, logout as apiLogout, checkAuth } from './store/api.js';
-import Dashboard from './components/Dashboard.js';
-import SpreadsheetGrid from './components/SpreadsheetGrid.js';
-import QuoteGenerator from './components/QuoteGenerator.js';
+const Dashboard = lazy(() => import('./components/Dashboard.js'));
+const SpreadsheetGrid = lazy(() => import('./components/SpreadsheetGrid.js'));
+const QuoteGenerator = lazy(() => import('./components/QuoteGenerator.js'));
 import WelcomeScreen from './components/WelcomeScreen.js';
 import ErrorBoundary from './components/ErrorBoundary.js';
 import AnimatedSection from './components/AnimatedSection.js';
 import { LayoutDashboard, Users, Package, FilePlus, X, User, Settings, Sun, Moon, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Modal } from './components/ui/Modal.js';
+import { Button } from './components/ui/Button.js';
 
 interface UserInfo {
   id: string;
@@ -102,6 +104,12 @@ function App() {
     );
   }
 
+  const loadingFallback = (
+    <div className="flex items-center justify-center h-64">
+      <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
   return (
     <ErrorBoundary>
     <div className="min-h-screen bg-dark-950 text-slate-100 flex flex-col font-sans">
@@ -109,7 +117,7 @@ function App() {
       <nav className="glass-panel border-b border-slate-800/80 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3" aria-label="SheetFlow Home">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-cyan-500 flex items-center justify-center font-display font-extrabold text-white text-lg tracking-wider shadow-md shadow-brand-500/20">
                 SF
               </div>
@@ -134,6 +142,7 @@ function App() {
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id as 'crm' | 'inventory' | 'quotes' | 'dashboard')}
+                      aria-current={isActive ? 'page' : undefined}
                       className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 relative group
                         ${isActive 
                           ? 'text-brand-400' 
@@ -160,7 +169,13 @@ function App() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setProfileOpen(!profileOpen)}
+                  aria-expanded={profileOpen}
+                  aria-haspopup="true"
+                  aria-label="User profile menu"
                   className="w-9 h-9 rounded-full bg-gradient-to-tr from-brand-600 to-cyan-500 flex items-center justify-center text-white font-semibold text-sm shadow-md shadow-brand-500/20 relative border border-slate-800/80 cursor-pointer focus:outline-none text-white-keep"
+                  aria-label="Open profile menu"
+                  aria-haspopup="true"
+                  aria-expanded={profileOpen}
                 >
                   {user ? user.name.charAt(0).toUpperCase() + (user.name.split(' ')[1]?.[0] || '') : '?'}
                   <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-slate-950 rounded-full" />
@@ -239,12 +254,14 @@ function App() {
             exit={{ opacity: 0, y: -15 }}
             transition={{ duration: 0.2 }}
           >
-            <AnimatedSection key={`content-${activeTab}`}>
-              {activeTab === 'dashboard' && <Dashboard />}
-              {activeTab === 'crm' && <SpreadsheetGrid tab="crm" />}
-              {activeTab === 'inventory' && <SpreadsheetGrid tab="inventory" />}
-              {activeTab === 'quotes' && <QuoteGenerator />}
-            </AnimatedSection>
+            <Suspense fallback={loadingFallback}>
+              <AnimatedSection key={`content-${activeTab}`}>
+                {activeTab === 'dashboard' && <Dashboard />}
+                {activeTab === 'crm' && <SpreadsheetGrid tab="crm" />}
+                {activeTab === 'inventory' && <SpreadsheetGrid tab="inventory" />}
+                {activeTab === 'quotes' && <QuoteGenerator />}
+              </AnimatedSection>
+            </Suspense>
           </motion.div>
         </AnimatePresence>
       </main>
@@ -291,89 +308,53 @@ function App() {
       </div>
 
       {/* Settings Modal */}
-      <AnimatePresence>
-        {settingsOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setSettingsOpen(false)}
-              className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
-            />
-            {/* Modal Dialog */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="glass-panel w-full max-w-md rounded-2xl shadow-2xl p-6 relative border border-slate-800/80 z-10"
-            >
-              <button
-                onClick={() => setSettingsOpen(false)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-              
-              <div className="flex items-center gap-2 mb-4">
-                <Settings className="text-brand-500" size={22} />
-                <h2 className="text-xl font-display font-semibold text-white">Application Settings</h2>
-              </div>
-              
-              {/* Settings Form */}
-              <div className="space-y-4 text-sm text-slate-300">
-                <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-white">Theme</p>
-                    <p className="text-xs text-slate-400">Switch between light and dark appearance.</p>
-                  </div>
-                  <button
-                    onClick={toggleTheme}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-sm text-slate-200 transition-colors cursor-pointer"
-                  >
-                    {isDarkMode ? <Sun size={14} /> : <Moon size={14} />}
-                    <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
-                  </button>
-                </div>
-
-                <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-white">Compact Mode</p>
-                    <p className="text-xs text-slate-400">Reduce padding in tables and grids.</p>
-                  </div>
-                  <input type="checkbox" className="w-4 h-4 accent-brand-500 rounded" />
-                </div>
-
-                <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-white">Auto-Save Sheets</p>
-                    <p className="text-xs text-slate-400">Automatically persist modifications.</p>
-                  </div>
-                  <input type="checkbox" defaultChecked className="w-4 h-4 accent-brand-500 rounded" />
-                </div>
-
-                <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-white">Developer Mode</p>
-                    <p className="text-xs text-slate-400">Show database queries in browser console.</p>
-                  </div>
-                  <input type="checkbox" className="w-4 h-4 accent-brand-500 rounded" />
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => setSettingsOpen(false)}
-                  className="px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-sm font-semibold transition-colors cursor-pointer"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </motion.div>
+      <Modal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        title="Application Settings"
+        icon={<Settings size={22} />}
+        footer={
+          <Button onClick={() => setSettingsOpen(false)}>
+            Save Changes
+          </Button>
+        }
+      >
+        <div className="space-y-4">
+          <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-white">Theme</p>
+              <p className="text-xs text-slate-400">Switch between light and dark appearance.</p>
+            </div>
+            <Button variant="secondary" onClick={toggleTheme} icon={isDarkMode ? <Sun size={14} /> : <Moon size={14} />}>
+              {isDarkMode ? 'Light Mode' : 'Dark Mode'}
+            </Button>
           </div>
-        )}
-      </AnimatePresence>
+
+          <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-white">Compact Mode</p>
+              <p className="text-xs text-slate-400">Reduce padding in tables and grids.</p>
+            </div>
+            <input type="checkbox" className="w-4 h-4 accent-brand-500 rounded" />
+          </div>
+
+          <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-white">Auto-Save Sheets</p>
+              <p className="text-xs text-slate-400">Automatically persist modifications.</p>
+            </div>
+            <input type="checkbox" defaultChecked className="w-4 h-4 accent-brand-500 rounded" />
+          </div>
+
+          <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-white">Developer Mode</p>
+              <p className="text-xs text-slate-400">Show database queries in browser console.</p>
+            </div>
+            <input type="checkbox" className="w-4 h-4 accent-brand-500 rounded" />
+          </div>
+        </div>
+      </Modal>
     </div>
     </ErrorBoundary>
   );
