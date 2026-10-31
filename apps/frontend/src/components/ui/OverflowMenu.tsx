@@ -11,11 +11,7 @@ export function OverflowMenu({ children }: OverflowMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
@@ -23,24 +19,19 @@ export function OverflowMenu({ children }: OverflowMenuProps) {
   return (
     <div ref={ref} className="relative sm:hidden">
       <button
-        type="button"
         onClick={() => setOpen(o => !o)}
-        className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
         aria-label="More actions"
         aria-haspopup="true"
         aria-expanded={open}
+        className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
       >
         <MoreHorizontal size={16} />
       </button>
       <AnimatePresence>
         {open && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: -4 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -4 }}
+          <motion.div initial={{ opacity: 0, scale: 0.95, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -4 }}
             className="absolute right-0 top-full mt-1 z-30 bg-slate-900 border border-slate-700 rounded-xl shadow-xl min-w-[140px] overflow-hidden"
-            onClick={() => setOpen(false)}
-          >
+            onClick={() => setOpen(false)}>
             {children}
           </motion.div>
         )}

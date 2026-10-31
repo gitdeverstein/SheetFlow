@@ -23,7 +23,7 @@ export async function login(page: Page, email: string, password: string): Promis
 
   await emailInput.fill(email);
   await page.locator('input[type="password"]').fill(password);
-  // Scope to form to avoid strict mode violation with the Sign in tab button
+  // Using a more specific selector to avoid strict mode violations (ambiguous "Sign in" buttons)
   await page.locator('form').getByRole('button', { name: /sign in|login|log in/i }).click();
 
   // Wait for dashboard to load
