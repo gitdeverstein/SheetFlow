@@ -1,155 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSheetStore } from '../store/sheetStore.js';
 import { useCustomers } from '../hooks/useCustomers.js';
 import { useInventory } from '../hooks/useInventory.js';
 import { useQuotes } from '../hooks/useQuotes.js';
-import { Users, Package, FileText, AlertTriangle, Download, FileSpreadsheet, Loader2, Trash2, Edit3, Copy, MoreHorizontal } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Users, Package, FileText, AlertTriangle, Download, FileSpreadsheet, Loader2, Trash2, Edit3, Copy } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { QUOTE_STATUS_TRANSITIONS } from '@sheetflow/shared';
 import AnimatedSection from './AnimatedSection.js';
 import SkeletonLoader from './SkeletonLoader.js';
-import { Button } from './ui/Button.js';
-import { Badge } from './ui/Badge.js';
-import { Modal } from './ui/Modal.js';
-
-// ── SVG Donut Chart ──────────────────────────────────────────────────────────
-const STATUS_COLORS: Record<string, string> = {
-  Draft: '#64748b',
-  Sent: '#3b82f6',
-  Accepted: '#10b981',
-  Rejected: '#f43f5e',
-};
-
-function DonutChart({ data }: { data: Record<string, number> }) {
-  const total = Object.values(data).reduce((s, v) => s + v, 0);
-  if (total === 0) return <p className="text-slate-500 text-sm text-center py-4">No quotes yet.</p>;
-
-  const r = 40;
-  const cx = 60;
-  const cy = 60;
-  const circumference = 2 * Math.PI * r;
-
-  let offset = 0;
-  const slices = Object.entries(data).map(([status, count]) => {
-    const pct = count / total;
-    const dash = pct * circumference;
-    const slice = { status, count, dash, offset, color: STATUS_COLORS[status] ?? '#94a3b8' };
-    offset += dash;
-    return slice;
-  });
-
-  return (
-    <div className="flex items-center gap-6">
-      <svg width="120" height="120" viewBox="0 0 120 120">
-        {slices.map((s) => (
-          <circle
-            key={s.status}
-            cx={cx} cy={cy} r={r}
-            fill="none"
-            stroke={s.color}
-            strokeWidth="18"
-            strokeDasharray={`${s.dash} ${circumference - s.dash}`}
-            strokeDashoffset={-s.offset + circumference / 4}
-            style={{ transform: 'rotate(-90deg)', transformOrigin: '60px 60px' }}
-          />
-        ))}
-        <text x={cx} y={cy + 5} textAnchor="middle" fill="currentColor" className="donut-label" fontSize="14" fontWeight="bold">{total}</text>
-      </svg>
-      <div className="space-y-1.5">
-        {slices.map((s) => (
-          <div key={s.status} className="flex items-center gap-2 text-xs">
-            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
-            <span className="text-slate-300">{s.status}</span>
-            <span className="text-slate-500 ml-auto pl-3 font-mono">{s.count}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Status pill ──────────────────────────────────────────────────────────────
-function StatusPill({ status, transitions, onChange }: { status: string; transitions: readonly string[]; onChange: (s: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const variantMap: Record<string, 'default' | 'info' | 'success' | 'error'> = {
-    Draft: 'default',
-    Sent: 'info',
-    Accepted: 'success',
-    Rejected: 'error',
-  };
-
-  return (
-    <div ref={ref} className="relative inline-block">
-      <button
-        onClick={() => transitions.length > 0 && setOpen(o => !o)}
-        className="cursor-pointer focus:outline-none"
-      >
-        <Badge variant={variantMap[status] || 'default'} className={transitions.length > 0 ? 'hover:opacity-80 transition-opacity' : ''}>
-          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[status] || '#94a3b8' }} />
-          {status}
-          {transitions.length > 0 && <span className="opacity-60 ml-0.5">▾</span>}
-        </Badge>
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-            className="absolute left-0 top-full mt-1 z-30 bg-slate-900 border border-slate-700 rounded-xl shadow-xl min-w-[110px] overflow-hidden">
-            {transitions.map(s => (
-              <button key={s} onClick={() => { onChange(s); setOpen(false); }}
-                className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-slate-800 transition-colors flex items-center gap-2 text-slate-200">
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[s] }} />{s}
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-// ── Overflow menu ─────────────────────────────────────────────────────────────
-function OverflowMenu({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-  return (
-    <div ref={ref} className="relative sm:hidden">
-      <button onClick={() => setOpen(o => !o)} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
-        <MoreHorizontal size={16} />
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div initial={{ opacity: 0, scale: 0.95, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -4 }}
-            className="absolute right-0 top-full mt-1 z-30 bg-slate-900 border border-slate-700 rounded-xl shadow-xl min-w-[140px] overflow-hidden"
-            onClick={() => setOpen(false)}>
-            {children}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-function ExpiryBadge({ validUntil, status }: { validUntil?: string | null; status: string }) {
-  if (!validUntil || status === 'Accepted' || status === 'Rejected') return null;
-  const expired = new Date(validUntil) < new Date();
-  if (!expired) return null;
-  return (
-    <span className="ml-1 px-1.5 py-0.5 text-[10px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30 rounded">
-      Expired
-    </span>
-  );
-}
+import { DonutChart } from './ui/DonutChart.js';
+import { StatusPill } from './ui/StatusPill.js';
+import { OverflowMenu } from './ui/OverflowMenu.js';
+import { ExpiryBadge } from './ui/ExpiryBadge.js';
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
 export default function Dashboard() {
@@ -304,10 +166,12 @@ export default function Dashboard() {
                         {/* Desktop actions */}
                         <div className="hidden sm:flex items-center justify-center gap-1.5 flex-wrap">
                           <button onClick={() => { setEditingQuote(quote.id); setActiveTab('quotes'); }}
+                            aria-label="Edit quote"
                             className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors" title="Edit">
                             <Edit3 size={15} />
                           </button>
                           <button onClick={() => handleDuplicate(quote.id)} disabled={duplicatingId === quote.id}
+                            aria-label="Duplicate quote"
                             className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors disabled:opacity-50" title="Duplicate as Draft">
                             {duplicatingId === quote.id ? <Loader2 size={15} className="animate-spin" /> : <Copy size={15} />}
                           </button>
@@ -321,7 +185,8 @@ export default function Dashboard() {
                             {exportingExcelId === quote.id ? <Loader2 size={12} className="animate-spin" /> : <FileSpreadsheet size={12} />}
                             <span>XLS</span>
                           </button>
-                          <button onClick={() => setDeleteConfirm(quote.id)}
+                          <button onClick={() => { if (confirm('Delete this quote? Stock will be restored if accepted.')) deleteQuote(quote.id); }}
+                            aria-label="Delete quote"
                             className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors" title="Delete">
                             <Trash2 size={15} />
                           </button>

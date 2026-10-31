@@ -3,21 +3,14 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 // ── Shared mocks ──────────────────────────────────────────────────────────
 vi.mock('framer-motion', () => {
-  const motion = new Proxy({}, {
-    get: (_target, prop: string) => {
-      return ({ children, className, ...props }: any) => {
-        const safe = Object.fromEntries(
-          Object.entries(props).filter(([k]) =>
-            !['animate', 'transition', 'initial', 'exit', 'variants', 'whileHover', 'whileTap', 'layoutId', 'layout'].includes(k)
-          )
-        );
-        const Tag = prop as any;
-        return <Tag className={className} {...safe}>{children}</Tag>;
-      };
-    }
-  });
+  const C = ({ children, className, onClick, type }: any) => {
+    return <button className={className} onClick={onClick} type={type}>{children}</button>;
+  };
   return {
-    motion,
+    motion: {
+      div: ({ children, className, ...props }: any) => <div className={className} {...props}>{children}</div>,
+      button: C,
+    },
     AnimatePresence: ({ children }: any) => <>{children}</>,
   };
 });
@@ -25,7 +18,11 @@ vi.mock('framer-motion', () => {
 vi.mock('react-window', () => ({
   FixedSizeList: ({ children, itemCount }: any) => (
     <div data-testid="fixed-size-list">
-      {Array.from({ length: itemCount }, (_, index) => children({ index, style: {} }))}
+      {Array.from({ length: itemCount }, (_, index) => (
+        <div key={index}>
+          {children({ index, style: {} })}
+        </div>
+      ))}
     </div>
   ),
 }));
@@ -201,8 +198,8 @@ describe('SpreadsheetGrid — CRM Tab', () => {
   it('renders save and delete buttons for each row', async () => {
     render(<SpreadsheetGrid tab="crm" />);
     await waitFor(() => {
-      const saveButtons = screen.getAllByTitle('Save');
-      const deleteButtons = screen.getAllByTitle('Delete');
+      const saveButtons = screen.getAllByLabelText('Save row');
+      const deleteButtons = screen.getAllByLabelText('Delete row');
       expect(saveButtons.length).toBeGreaterThanOrEqual(1);
       expect(deleteButtons.length).toBeGreaterThanOrEqual(1);
     });
@@ -212,7 +209,7 @@ describe('SpreadsheetGrid — CRM Tab', () => {
     render(<SpreadsheetGrid tab="crm" />);
 
     await waitFor(() => {
-      const deleteButtons = screen.getAllByTitle('Delete');
+      const deleteButtons = screen.getAllByLabelText('Delete row');
       expect(deleteButtons.length).toBeGreaterThanOrEqual(1);
       fireEvent.click(deleteButtons[0]);
     });
@@ -226,14 +223,13 @@ describe('SpreadsheetGrid — CRM Tab', () => {
     render(<SpreadsheetGrid tab="crm" />);
 
     await waitFor(() => {
-      const deleteButton = screen.getAllByTitle('Delete')[0];
+      const deleteButton = screen.getAllByLabelText('Delete row')[0];
       fireEvent.click(deleteButton);
     });
 
     // Click the Delete button in the confirmation modal
-    const modalButtons = screen.getAllByRole('button').filter(b => b.textContent === 'Delete');
-    expect(modalButtons.length).toBeGreaterThanOrEqual(1);
-    fireEvent.click(modalButtons[0]);
+    const deleteBtn = screen.getByRole('button', { name: /^Delete$/ });
+    fireEvent.click(deleteBtn);
 
     await waitFor(() => {
       expect(deleteSpreadsheetRow).toHaveBeenCalled();

@@ -13,6 +13,7 @@ export interface InventorySlice {
 
 type StoreGet = () => {
   addToast: (text: string, type?: 'success' | 'info' | 'error', undoAction?: () => void) => void;
+  addInventoryItem: (data: Omit<InventoryItem, 'id'>) => Promise<void>;
 };
 
 type SheetStoreState = import('./sheetStore.js').SheetStoreState;
@@ -48,9 +49,21 @@ export const createInventorySlice: StateCreator<SheetStoreState, [], [], Invento
 
   deleteInventoryItem: async (id) => {
     try {
+      const allItems = queryClient.getQueryData<InventoryItem[]>(inventoryKeys.all) || [];
+      const deletedItem = allItems.find(i => i.id === id);
+
       await apiFetch(`${API_BASE}/inventory/${id}`, { method: 'DELETE' });
       queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
-      get().addToast('Product deleted', 'info');
+
+      if (deletedItem) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id: _, ...dataWithoutId } = deletedItem;
+        get().addToast('Product deleted', 'info', () => {
+          get().addInventoryItem(dataWithoutId);
+        });
+      } else {
+        get().addToast('Product deleted', 'info');
+      }
     } catch (err: unknown) {
       get().addToast(err instanceof Error ? err.message : 'Failed to delete product', 'error');
     }
