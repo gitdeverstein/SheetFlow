@@ -12,6 +12,7 @@ export interface CustomerSlice {
 
 type StoreGet = () => {
   addToast: (text: string, type?: 'success' | 'info' | 'error', undoAction?: () => void) => void;
+  addCustomer: (data: Omit<Customer, 'id'>) => Promise<void>;
 };
 
 type SheetStoreState = import('./sheetStore.js').SheetStoreState;
@@ -47,9 +48,21 @@ export const createCustomerSlice: StateCreator<SheetStoreState, [], [], Customer
 
   deleteCustomer: async (id) => {
     try {
+      const allCustomers = queryClient.getQueryData<Customer[]>(customersKeys.all) || [];
+      const deletedCustomer = allCustomers.find(c => c.id === id);
+
       await apiFetch(`${API_BASE}/customers/${id}`, { method: 'DELETE' });
       queryClient.invalidateQueries({ queryKey: customersKeys.all });
-      get().addToast('Customer deleted', 'info');
+
+      if (deletedCustomer) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id: _, ...dataWithoutId } = deletedCustomer;
+        get().addToast('Customer deleted', 'info', () => {
+          get().addCustomer(dataWithoutId);
+        });
+      } else {
+        get().addToast('Customer deleted', 'info');
+      }
     } catch (err: unknown) {
       get().addToast(err instanceof Error ? err.message : 'Failed to delete customer', 'error');
     }

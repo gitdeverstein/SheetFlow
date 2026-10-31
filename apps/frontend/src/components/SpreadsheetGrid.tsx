@@ -3,11 +3,12 @@ import { useSheetStore, buildCrmRow, buildInvRow } from '../store/sheetStore.js'
 import { useCustomers } from '../hooks/useCustomers.js';
 import { useInventory } from '../hooks/useInventory.js';
 import { Plus, Trash2, Save, ArrowUpDown, Search, AlertCircle, Upload, Loader2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { FixedSizeList as List } from 'react-window';
 import SkeletonLoader from './SkeletonLoader.js';
 import AnimatedSection from './AnimatedSection.js';
 import { useDebounce } from '../hooks/useDebounce.js';
+import { Modal } from './ui/Modal.js';
+import { Button } from './ui/Button.js';
 
 interface SpreadsheetGridProps {
   tab: 'crm' | 'inventory';
@@ -143,59 +144,37 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
           {tab === 'inventory' && (
             <>
               <input ref={csvInputRef} type="file" accept=".csv" className="hidden" onChange={handleCsvImport} />
-              <motion.button
+              <Button
+                variant="secondary"
                 onClick={() => csvInputRef.current?.click()}
-                disabled={importing}
-                whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-medium rounded-xl transition-all disabled:opacity-50"
+                isLoading={importing}
+                icon={<Upload size={16} />}
                 title="Import CSV (columns: sku, name, stock, alertThreshold, price)"
               >
-                {importing ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                <span>{importing ? 'Importing…' : 'Import CSV'}</span>
-              </motion.button>
+                Import CSV
+              </Button>
             </>
           )}
-          <motion.button
-            onClick={() => addNewRow(tab)}
-            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-xl transition-all shadow-lg shadow-brand-500/20"
-          >
-            <Plus size={18} />
-            <span>Add New Row</span>
-          </motion.button>
+          <Button onClick={() => addNewRow(tab)} icon={<Plus size={18} />}>
+            Add New Row
+          </Button>
         </div>
       </div>
 
       {/* Delete Confirmation Modal */}
-      <AnimatePresence>
-        {deleteConfirm && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm"
-            onClick={() => setDeleteConfirm(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="glass-panel p-6 rounded-2xl max-w-sm w-full mx-4 border border-slate-800 shadow-2xl"
-            >
-              <h3 className="text-lg font-semibold text-white">Delete Record</h3>
-              <p className="text-sm text-slate-400 mt-2">This record will be deleted. You can undo within 4 seconds.</p>
-              <div className="flex justify-end gap-3 mt-6">
-                <button onClick={() => setDeleteConfirm(null)} className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white bg-slate-900 border border-slate-800 rounded-xl transition-colors">
-                  Cancel
-                </button>
-                <button
-                  onClick={() => { const id = deleteConfirm; setDeleteConfirm(null); deleteSpreadsheetRow(tab, id); }}
-                  className="px-4 py-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Modal
+        isOpen={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        title="Delete Record"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+            <Button variant="danger" onClick={() => { const id = deleteConfirm; setDeleteConfirm(null); deleteSpreadsheetRow(tab, id!); }}>Delete</Button>
+          </>
+        }
+      >
+        <p>This record will be deleted. You can undo within 4 seconds.</p>
+      </Modal>
 
       {/* Spreadsheet Container */}
       <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
@@ -236,7 +215,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
             {/* Rows */}
             <div className="divide-y divide-slate-800/60 bg-slate-950/40">
               {(loading || isCustomersLoading || isInventoryLoading) ? (
-                <SkeletonLoader variant="grid-cell" count={columns.length} />
+                <SkeletonLoader variant="grid-cell" count={10} columns={columns.length} />
               ) : sortedRows.length === 0 ? (
                 <div className="p-12 flex flex-col items-center gap-3 text-center">
                   <div className="w-14 h-14 rounded-2xl bg-slate-800/60 flex items-center justify-center">
@@ -254,9 +233,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                       : 'Try clearing the filter fields above.'}
                   </p>
                   {rows.length === 0 && (
-                    <button onClick={() => addNewRow(tab)} className="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-xl transition-all">
-                      <Plus size={15} /> Add New Row
-                    </button>
+                    <Button onClick={() => addNewRow(tab)} icon={<Plus size={15} />}>Add New Row</Button>
                   )}
                 </div>
               ) : (
@@ -341,6 +318,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                             <button
                               onClick={() => saveSpreadsheetRow(tab, row.id)}
                               disabled={isSaving}
+                              aria-label="Save row"
                               className="p-1.5 text-emerald-400 rounded-lg transition-colors hover:bg-emerald-500/10 disabled:opacity-50"
                               title="Save"
                             >
@@ -348,6 +326,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                             </button>
                             <button
                               onClick={() => setDeleteConfirm(row.id)}
+                              aria-label="Delete row"
                               className="p-1.5 text-rose-400 rounded-lg transition-colors hover:bg-rose-500/10"
                               title="Delete"
                             >
@@ -389,6 +368,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
             <button
               onClick={() => setPage(p => Math.max(0, p - 1))}
               disabled={clampedPage === 0}
+              aria-label="Previous page"
               className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-30 disabled:pointer-events-none"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
@@ -396,6 +376,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
             <button
               onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
               disabled={clampedPage >= totalPages - 1}
+              aria-label="Next page"
               className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-30 disabled:pointer-events-none"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
