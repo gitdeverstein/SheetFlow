@@ -41,9 +41,10 @@ export async function login(page: Page, email: string, password: string): Promis
     throw new Error(`Login failed: ${loginResult.error} (status: ${loginResult.status})`);
   }
 
-  // Reload the page so React picks up the session cookie
-  await page.goto('/');
-  await page.waitForLoadState('load');
+  await emailInput.fill(email);
+  await page.locator('input[type="password"]').fill(password);
+  // Using .last() or a more specific selector because of multiple "Sign in" buttons (tab vs submit)
+  await page.getByRole('button', { name: /sign in|login|log in/i }).filter({ hasText: /^Sign in$|^Login$|^Log in$/i }).last().click();
 
   // Wait for the dashboard to load
   await page.getByRole('heading', { name: /Real-time KPIs/i }).waitFor({ timeout: 15000 });

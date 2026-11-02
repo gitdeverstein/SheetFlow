@@ -97,7 +97,6 @@ async function main() {
     process.exit(1);
   } finally {
     await client.end();
-    process.exit(0);
   }
 }
 

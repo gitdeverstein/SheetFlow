@@ -1,83 +1,96 @@
-# Weekly Application Audit Report - SheetFlow
+### Frontend Analysis Report: SheetFlow
 
-## 1. User Behavior
-*   **User Journeys:** Users typically land on the Welcome Screen, authenticate, and arrive at the Dashboard. From there, they navigate to CRM Sheets or Inventory to manage data, or the Quote Generator to create sales documents.
-*   **Abandonment Points:** High friction in the Quote Generator. Users must manually search for customers and products even if they were just viewing them in the CRM or Inventory tabs.
-*   **Most Visited Pages:** Dashboard (overview), CRM Sheets (daily management).
-*   **Low Engagement:** The formula engine in the spreadsheet grids is underutilized because its existence is only hinted at in a small sub-header.
-
-## 2. Conversion
-*   **Form Optimization:** The Quote Generator is functional but requires many clicks. Pre-filling data from other tabs would significantly reduce friction.
-*   **CTA Optimization:** "Add New Row" is prominent, but "Create Quote" is only available as a top-level tab, not as a contextual action where users are already looking at data.
-*   **Funnel Abandonment:** Users may abandon the quote process if they cannot quickly find the SKU or Customer they just identified in the management sheets.
-
-## 3. Product
-*   **Underutilized Features:** The recursive descent formula engine is a powerful USP but lacks a "Formula Bar" common in spreadsheet apps, making it hard to discover and use.
-*   **Functional Improvements:** Contextual shortcuts between modules (e.g., "Bill this Customer") would unify the currently siloed tabs.
-
-## 4. Performance
-*   **Technical Quality:** While `react-window` is implemented for performance, console warnings regarding missing keys in the virtualized list indicate a regression in implementation quality that could lead to state issues during fast scrolling.
-
-## 5. SEO
-*   **Status:** Basic meta tags and descriptions are present in `index.html`. Strategic keywords like "Spreadsheet CRM" and "SME" are included.
-
-## 6. Accessibility
-*   **Barriers:** The Welcome Screen contains multiple elements with the same "Sign in" accessible name (tab and button), which is a WCAG violation and confusing for screen reader users.
+This report outlines identified improvements for the SheetFlow frontend, categorized by priority based on impact and implementation effort.
 
 ---
 
-## Top 5 Recommended Improvements
+### Critical Priority
 
-### 1. Unique Accessible Names for Authentication
-*   **Description:** Differentiate between the "Sign in" tab and the "Sign in" submit button using specific `aria-label` or descriptive text.
-*   **Problem Solved:** WCAG compliance and navigation clarity for assistive technologies.
-*   **User Impact:** High (Accessibility).
-*   **Business Impact:** Medium (Compliance/Legal).
-*   **Estimated Difficulty:** Very Low.
-*   **Priority:** 1 (Critical).
-*   **KPIs:** 0 accessibility violations in automated scans.
+#### 1. Optimization of Bundle Size via Lazy Loading
+*   **Problem:** The production bundle exceeds 1.8MB, primarily due to heavy libraries (`jspdf`, `jspdf-autotable`, and `exceljs`) being imported at the top level in `exportUtils.ts`.
+*   **Impact:** Slow initial load times and poor performance on low-bandwidth connections.
+*   **Solution:** Move these imports inside their respective export functions using dynamic `import()`.
+*   **Estimated Effort:** Low (1 hour)
 
-### 2. "Quick Quote" Contextual Actions
-*   **Description:** Add a "Create Quote" button to each row in the CRM and Inventory grids that navigates to the Quote Generator with the entity pre-selected.
-*   **Problem Solved:** Siloed data and manual entry friction.
-*   **User Impact:** High (UX).
-*   **Business Impact:** High (Conversion/Productivity).
-*   **Estimated Difficulty:** Medium.
-*   **Priority:** 2 (High).
-*   **KPIs:** Reduction in time-to-quote; increased conversion from CRM to Quote.
-
-### 3. Spreadsheet Formula Bar
-*   **Description:** Implement a dedicated formula bar above the grid that shows the raw formula or value of the selected cell.
-*   **Problem Solved:** Poor discoverability of the formula engine.
-*   **User Impact:** Medium.
-*   **Business Impact:** Medium (Feature awareness).
-*   **Estimated Difficulty:** Medium.
-*   **Priority:** 3 (Medium).
-*   **KPIs:** Increase in cells containing formulas.
-
-### 4. Technical Debt: Virtualized List Keys
-*   **Description:** Fix the `react-window` unique key prop warning by ensuring the row renderer correctly identifies items.
-*   **Problem Solved:** Technical regression and potential rendering bugs.
-*   **User Impact:** Low (Stability).
-*   **Business Impact:** Low (Maintainability).
-*   **Estimated Difficulty:** Low.
-*   **Priority:** 4 (Medium).
-*   **KPIs:** Clean console in development; zero rendering regressions.
-
-### 5. CRM & Inventory Export
-*   **Description:** Extend the existing Excel/PDF export logic from the Quotes module to the CRM and Inventory modules.
-*   **Problem Solved:** Data portability and offline reporting.
-*   **User Impact:** Medium.
-*   **Business Impact:** Low (Standard feature expectation).
-*   **Estimated Difficulty:** Medium.
-*   **Priority:** 5 (Low).
-*   **KPIs:** Number of exports generated.
+#### 2. Virtualized List Key Regression
+*   **Problem:** In `SpreadsheetGrid.tsx`, the `FixedSizeList` renderers lack unique `key` props on row elements, causing React to lose track of component identity during scrolls.
+*   **Impact:** Performance degradation during large dataset interaction and potential UI glitches/re-render loops.
+*   **Solution:** Ensure the row wrapper inside the `List` component uses a unique ID (e.g., `row.id`) as its key.
+*   **Estimated Effort:** Low (15 mins)
 
 ---
 
-## ROI Ranking
-1. **Improvement 1 (Accessibility):** Minimal effort for high compliance/UX gain.
-2. **Improvement 2 (Quick Quote):** Significant productivity boost for users, directly impacting the core "Conversion" metric.
-3. **Improvement 4 (Technical Debt):** Low effort to maintain technical quality and prevent future bugs.
-4. **Improvement 3 (Formula Bar):** Medium effort to unlock a core product value.
-5. **Improvement 5 (Exports):** Medium effort for a secondary feature.
+### High Priority
+
+#### 3. Icon-Only Button Accessibility
+*   **Problem:** Numerous buttons (Edit, Delete, Copy, PDF/XLS export) use Lucide icons without `aria-label` or `title` attributes.
+*   **Impact:** Screen reader users cannot identify the purpose of these critical actions.
+*   **Solution:** Add descriptive `aria-label` to all icon-only buttons in `Dashboard.tsx` and `SpreadsheetGrid.tsx`.
+*   **Estimated Effort:** Medium (2 hours)
+
+#### 4. Form Label & ID Association
+*   **Problem:** Form inputs in `WelcomeScreen.tsx` and `QuoteGenerator.tsx` often lack explicit `id` attributes linked to their `<label>` via `htmlFor`.
+*   **Impact:** Poor accessibility and reduced touch targets for mobile users.
+*   **Solution:** Standardize all form fields to use unique IDs and matching labels.
+*   **Estimated Effort:** Medium (3 hours)
+
+#### 5. Native Modal Replacement
+*   **Problem:** Critical actions like deleting a quote or changing status rely on the native `window.confirm`.
+*   **Impact:** Disrupts the "premium" glassmorphism UI aesthetic and provides a poor, non-accessible user experience.
+*   **Solution:** Implement a reusable `<ConfirmationModal />` using Framer Motion to match the design system.
+*   **Estimated Effort:** Medium (4 hours)
+
+---
+
+### Medium Priority
+
+#### 6. Grid Cell Memoization
+*   **Problem:** `SpreadsheetGrid` re-renders all visible cells on any state change (e.g., typing in a filter) because there is no memoization on individual cell components.
+*   **Impact:** Noticeable "lag" when typing in filters or editing cells in large sheets.
+*   **Solution:** Extract the cell renderer into a dedicated `GridCell` component wrapped in `React.memo` with a custom comparison function.
+*   **Estimated Effort:** Medium (5 hours)
+
+#### 7. UI Component Standardization
+*   **Problem:** Variance in `rounded-*` (xl vs 2xl) and `px/py` values across similar buttons and inputs in different files.
+*   **Impact:** Visual inconsistency and increased maintenance overhead.
+*   **Solution:** Extract standard `Button`, `Input`, and `Select` components into `src/components/ui/` using the existing Tailwind 4 theme variables.
+*   **Estimated Effort:** High (8 hours)
+
+#### 8. Quote Generator UX: Combobox Pattern
+*   **Problem:** The current search-then-select pattern for products in `QuoteGenerator.tsx` requires two separate interactions.
+*   **Impact:** Friction in the most frequent user journey (drafting quotes).
+*   **Solution:** Combine the search input and select into a single searchable Combobox component.
+*   **Estimated Effort:** Medium (6 hours)
+
+---
+
+### Low Priority
+
+#### 9. Enhanced Keyboard Navigation
+*   **Problem:** Grid navigation is currently limited to `tabIndex={0}` on rows.
+*   **Impact:** Difficult for power users to navigate cells efficiently without a mouse.
+*   **Solution:** Implement full arrow-key focus management (roving tabindex) within the `SpreadsheetGrid`.
+*   **Estimated Effort:** High (10 hours)
+
+#### 10. "Quick Quote" Shortcut
+*   **Problem:** Creating a quote for a specific customer requires navigating to the "Quotes" tab and searching for them again.
+*   **Impact:** Lower engagement and slower workflow.
+*   **Solution:** Add a "Create Quote" action directly on CRM rows in the `SpreadsheetGrid` pre-fills the `QuoteGenerator`.
+*   **Estimated Effort:** Low (2 hours)
+
+---
+
+### Final Top 10 Cost-Effective Improvements
+
+| Improvement | Category | Priority | ROI |
+| :--- | :--- | :--- | :--- |
+| **1. Lazy Load Export Libs** | Performance | Critical | Extremely High |
+| **2. Fix Grid Keys** | Technical Debt | Critical | High |
+| **3. ARIA Labels for Icons** | Accessibility | High | High |
+| **4. Memoize Grid Cells** | Performance | Medium | High |
+| **5. Standardize Form Labels/IDs**| Accessibility | High | Medium |
+| **6. Custom Confirm Modal** | UX/UI | High | Medium |
+| **7. "Quick Quote" Action** | UX/Engagement | Low | High |
+| **8. Extract UI Components** | Maintainability| Medium | Medium |
+| **9. Combobox for Products** | UX | Medium | Medium |
+| **10. StatusPill Memoization** | Performance | Medium | Low |
