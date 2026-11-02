@@ -360,8 +360,36 @@ export default function QuoteGenerator() {
             className={`w-full py-3 ${success ? 'bg-emerald-500 shadow-emerald-500/20 text-white' : ''}`}
             icon={submitting ? <Loader2 size={18} className="animate-spin" /> : success ? <Check size={18} /> : <FileText size={18} />}
           >
-            {submitting ? 'Validating...' : success ? 'Quote saved!' : (editingQuoteId ? 'Update Quote' : 'Create Quote')}
-          </Button>
+            {submitting ? (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center gap-2"
+              >
+                <Loader2 size={18} className="animate-spin" />
+                <span>Validating...</span>
+              </motion.div>
+            ) : success ? (
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 15 }}
+                className="flex items-center gap-2"
+              >
+                <Check size={18} />
+                <span>Saved!</span>
+              </motion.div>
+            ) : (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center gap-2"
+              >
+                <FileText size={18} />
+                <span>{editingQuoteId ? 'Update Quote' : 'Create Quote'}</span>
+              </motion.div>
+            )}
+          </motion.button>
         </div>
       </AnimatedSection>
       )}

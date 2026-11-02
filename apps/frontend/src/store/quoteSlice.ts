@@ -110,18 +110,14 @@ export const createQuoteSlice: StateCreator<SheetStoreState, [], [], QuoteSlice>
 
   generatePdf: async (id) => {
     set({ generatingPdfId: id });
-    await apiAction(
-      async () => {
-        const fullQuote = await fetchFullQuote(id);
-        await exportQuotePdf(fullQuote);
-      },
-      get().addToast,
-      {
-        successMessage: 'PDF downloaded successfully',
-        errorMessage: 'Failed to generate PDF',
-      },
-    );
-    set({ generatingPdfId: null });
+    try {
+      const fullQuote = await fetchFullQuote(id);
+      await exportQuotePdf(fullQuote);
+      get().addToast('PDF downloaded successfully');
+    } catch (err: unknown) {
+      get().addToast(err instanceof Error ? err.message : 'Failed to generate PDF', 'error');
+    }
+    finally { set({ generatingPdfId: null }); }
   },
 
   exportExcel: async (id) => {

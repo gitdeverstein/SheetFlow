@@ -1,15 +1,12 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useSheetStore } from './store/sheetStore.js';
-import { login, register, logout as apiLogout, checkAuth, verifyEmail } from './store/api.js';
-const Dashboard = lazy(() => import('./components/Dashboard.js'));
-const SpreadsheetGrid = lazy(() => import('./components/SpreadsheetGrid.js'));
-const QuoteGenerator = lazy(() => import('./components/QuoteGenerator.js'));
+import { login, register, logout as apiLogout, checkAuth } from './store/api.js';
 import WelcomeScreen from './components/WelcomeScreen.js';
 import VerifyEmail from './components/VerifyEmail.js';
 import ErrorBoundary from './components/ErrorBoundary.js';
+import SkeletonLoader from './components/SkeletonLoader.js';
 import AnimatedSection from './components/AnimatedSection.js';
-import { useOutsideClick } from './hooks/useOutsideClick.js';
-import { LayoutDashboard, Users, Package, FilePlus, X, User, Settings, Sun, Moon, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Package, FilePlus, X, User, Settings, Sun, Moon, LogOut, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Modal } from './components/ui/Modal.js';
 import { Button } from './components/ui/Button.js';
@@ -20,6 +17,10 @@ interface UserInfo {
   email: string;
   emailVerified: boolean;
 }
+
+const Dashboard = lazy(() => import('./components/Dashboard.js'));
+const SpreadsheetGrid = lazy(() => import('./components/SpreadsheetGrid.js'));
+const QuoteGenerator = lazy(() => import('./components/QuoteGenerator.js'));
 
 function App() {
   const { activeTab, setActiveTab, prefetchData, toasts, removeToast } = useSheetStore();
@@ -337,14 +338,22 @@ function App() {
             exit={{ opacity: 0, y: -15 }}
             transition={{ duration: 0.2 }}
           >
-            <Suspense fallback={loadingFallback}>
-              <AnimatedSection key={`content-${activeTab}`}>
+            <AnimatedSection key={`content-${activeTab}`}>
+              <Suspense fallback={
+                <div className="space-y-8">
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="w-6 h-6 animate-spin text-brand-500" />
+                    <span className="text-slate-400 font-medium">Loading component...</span>
+                  </div>
+                  <SkeletonLoader variant="card" count={3} />
+                </div>
+              }>
                 {activeTab === 'dashboard' && <Dashboard />}
                 {activeTab === 'crm' && <SpreadsheetGrid tab="crm" />}
                 {activeTab === 'inventory' && <SpreadsheetGrid tab="inventory" />}
                 {activeTab === 'quotes' && <QuoteGenerator />}
-              </AnimatedSection>
-            </Suspense>
+              </Suspense>
+            </AnimatedSection>
           </motion.div>
         </AnimatePresence>
       </main>
