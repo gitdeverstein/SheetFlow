@@ -43,7 +43,7 @@ export async function login(page: Page, email: string, password: string): Promis
 
   await emailInput.fill(email);
   await page.locator('input[type="password"]').fill(password);
-  // Target the button within the form to avoid strict mode violation with tab buttons
+  // Using form scope to avoid conflict with the "Sign in" tab button
   await page.locator('form').getByRole('button', { name: /sign in|login|log in/i }).click();
 
   // Scope to form to avoid ambiguity with tab buttons
