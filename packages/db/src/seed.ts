@@ -152,7 +152,13 @@ async function main() {
     console.log(`  Demo user:  john@sheetflow.com / demo1234!`);
   } catch (error) {
     console.error('Error seeding database:', error);
-    throw error;
+    process.exitCode = 1;
+  } finally {
+    try {
+      await client.end();
+    } catch (e) {
+      console.error('Error closing database connection:', e);
+    }
   }
 
   console.log('Database seeded successfully!');
