@@ -8,18 +8,12 @@ test.describe('Quote Management', () => {
 
   test('should navigate to quote generator tab', async ({ page }) => {
     // Click on the quotes tab (likely a nav item or button)
-    await page
-      .getByRole('button', { name: /quotes/i })
-      .first()
-      .click();
+    await page.getByRole('button', { name: /quote/i }).first().click();
     await expect(page.getByText('Create New Quote')).toBeVisible();
   });
 
   test('should render the quote form', async ({ page }) => {
-    await page
-      .getByRole('button', { name: /quotes/i })
-      .first()
-      .click();
+    await page.getByRole('button', { name: /quote/i }).first().click();
 
     await expect(page.getByRole('combobox', { name: /client \/ customer/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /add item/i })).toBeVisible();
@@ -28,10 +22,7 @@ test.describe('Quote Management', () => {
   });
 
   test('should select a customer and see options', async ({ page }) => {
-    await page
-      .getByRole('button', { name: /quotes/i })
-      .first()
-      .click();
+    await page.getByRole('button', { name: /quote/i }).first().click();
 
     // Open the customer combobox — the listbox should contain seed data once loaded
     await page.getByRole('combobox', { name: /client \/ customer/i }).click();
@@ -41,10 +32,7 @@ test.describe('Quote Management', () => {
   });
 
   test('should add and remove line items', async ({ page }) => {
-    await page
-      .getByRole('button', { name: /quotes/i })
-      .first()
-      .click();
+    await page.getByRole('button', { name: /quote/i }).first().click();
 
     // Add first item
     await page.getByRole('button', { name: /add item/i }).first().click();
@@ -64,10 +52,7 @@ test.describe('Quote Management', () => {
   });
 
   test('should calculate totals when items are added', async ({ page }) => {
-    await page
-      .getByRole('button', { name: /quotes/i })
-      .first()
-      .click();
+    await page.getByRole('button', { name: /quote/i }).first().click();
 
     // Initially shows $0.00 — appears in subtotal, tax, and total
     await expect(page.getByText('$0.00').first()).toBeVisible();
