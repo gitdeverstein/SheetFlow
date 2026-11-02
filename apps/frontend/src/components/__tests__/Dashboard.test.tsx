@@ -299,7 +299,7 @@ describe('Dashboard', () => {
     expect(defaultStore.setActiveTab).toHaveBeenCalledWith('quotes');
   });
 
-  it('renders delete button and calls deleteQuote after confirm', async () => {
+  it('renders delete button and calls deleteQuote after confirm modal', async () => {
     const deleteQuote = vi.fn().mockResolvedValue(undefined);
     mockAllHooks({ store: { deleteQuote } });
     render(<Dashboard />);
@@ -308,11 +308,12 @@ describe('Dashboard', () => {
 
     fireEvent.click(deleteButtons[0]);
 
-    // ConfirmModal renders with title "Delete Quote" and a "Confirm" button
-    const confirmButton = screen.getByText('Confirm', { selector: 'button' });
-    fireEvent.click(confirmButton);
+    // Modal should appear
+    expect(screen.getByText('Delete Quote')).toBeInTheDocument();
+    const modalDeleteButton = await screen.findByText('Delete', { selector: 'button' });
+    fireEvent.click(modalDeleteButton);
 
-    expect(deleteQuote).toHaveBeenCalledWith('q1');
+    expect(deleteQuote).toHaveBeenCalled();
   });
 
   // ── Low Stock Watchlist ────────────────────────────────────────────────

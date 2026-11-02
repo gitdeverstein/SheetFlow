@@ -238,23 +238,12 @@ export default function Dashboard() {
 
   const [animatedRevenue, setAnimatedRevenue] = useState(0);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [statusConfirm, setStatusConfirm] = useState<{ id: string; status: string } | null>(null);
-
-  // Modal confirmation state
   const [confirmModal, setConfirmModal] = useState<{
-    isOpen: boolean;
     title: string;
     message: string;
-    variant: 'danger' | 'warning' | 'brand';
+    confirmLabel: string;
     onConfirm: () => void;
-  }>({
-    isOpen: false,
-    title: '',
-    message: '',
-    variant: 'danger',
-    onConfirm: () => {},
-  });
+  } | null>(null);
 
   const totalCustomers = customers.length;
   const totalProducts = inventory.length;
@@ -450,7 +439,18 @@ export default function Dashboard() {
                           <StatusPill
                             status={quote.status}
                             transitions={QUOTE_STATUS_TRANSITIONS[quote.status] ?? []}
-                            onChange={(newStatus) => promptStatusChange(quote.id, quote.status, newStatus)}
+                            onChange={(newStatus) => {
+                              if (newStatus === 'Accepted' || quote.status === 'Accepted') {
+                                setConfirmModal({
+                                  title: 'Update Status',
+                                  message: `Change status to "${newStatus}"? This will adjust inventory stock.`,
+                                  confirmLabel: 'Update Status',
+                                  onConfirm: () => updateQuoteStatus(quote.id, newStatus),
+                                });
+                              } else {
+                                updateQuoteStatus(quote.id, newStatus);
+                              }
+                            }}
                           />
                           <ExpiryBadge validUntil={quote.validUntil} status={quote.status} />
                         </div>
@@ -476,18 +476,32 @@ export default function Dashboard() {
                             {exportingExcelId === quote.id ? <Loader2 size={12} className="animate-spin" /> : <FileSpreadsheet size={12} />}
                             <span>XLS</span>
                           </button>
-                          <button onClick={() => promptDeleteQuote(quote.id)}
-                            className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer" title="Delete">
+                          <button onClick={() => {
+                            setConfirmModal({
+                              title: 'Delete Quote',
+                              message: 'Delete this quote? Stock will be restored if accepted.',
+                              confirmLabel: 'Delete',
+                              onConfirm: () => deleteQuote(quote.id),
+                            });
+                          }}
+                            className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors" title="Delete">
                             <Trash2 size={15} />
                           </button>
                         </div>
                         {/* Mobile overflow menu */}
                         <OverflowMenu>
-                          <button onClick={() => { setEditingQuote(quote.id); setActiveTab('quotes'); }} className="w-full text-left px-3 py-2 text-xs text-cyan-400 hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><Edit3 size={13} /> Edit</button>
-                          <button onClick={() => handleDuplicate(quote.id)} className="w-full text-left px-3 py-2 text-xs text-violet-400 hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><Copy size={13} /> Duplicate</button>
-                          <button onClick={() => generatePdf(quote.id)} className="w-full text-left px-3 py-2 text-xs text-brand-400 hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><Download size={13} /> Export PDF</button>
-                          <button onClick={() => exportExcel(quote.id)} className="w-full text-left px-3 py-2 text-xs text-emerald-400 hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><FileSpreadsheet size={13} /> Export Excel</button>
-                          <button onClick={() => promptDeleteQuote(quote.id)} className="w-full text-left px-3 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><Trash2 size={13} /> Delete</button>
+                          <button onClick={() => { setEditingQuote(quote.id); setActiveTab('quotes'); }} className="w-full text-left px-3 py-2 text-xs text-cyan-400 hover:bg-slate-800 flex items-center gap-2"><Edit3 size={13} /> Edit</button>
+                          <button onClick={() => handleDuplicate(quote.id)} className="w-full text-left px-3 py-2 text-xs text-violet-400 hover:bg-slate-800 flex items-center gap-2"><Copy size={13} /> Duplicate</button>
+                          <button onClick={() => generatePdf(quote.id)} className="w-full text-left px-3 py-2 text-xs text-brand-400 hover:bg-slate-800 flex items-center gap-2"><Download size={13} /> Export PDF</button>
+                          <button onClick={() => exportExcel(quote.id)} className="w-full text-left px-3 py-2 text-xs text-emerald-400 hover:bg-slate-800 flex items-center gap-2"><FileSpreadsheet size={13} /> Export Excel</button>
+                          <button onClick={() => {
+                            setConfirmModal({
+                              title: 'Delete Quote',
+                              message: 'Delete this quote? Stock will be restored if accepted.',
+                              confirmLabel: 'Delete',
+                              onConfirm: () => deleteQuote(quote.id),
+                            });
+                          }} className="w-full text-left px-3 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center gap-2"><Trash2 size={13} /> Delete</button>
                         </OverflowMenu>
                       </td>
                     </tr>
@@ -723,25 +737,43 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <ConfirmModal
-        isOpen={!!deleteConfirmId}
-        onClose={() => setDeleteConfirmId(null)}
-        onConfirm={() => { if (deleteConfirmId) deleteQuote(deleteConfirmId); }}
-        title="Delete Quote"
-        message="Are you sure you want to delete this quote? If it was accepted, inventory stock will be restored."
-        confirmLabel="Delete"
-        variant="danger"
-      />
-
-      <ConfirmModal
-        isOpen={!!statusConfirm}
-        onClose={() => setStatusConfirm(null)}
-        onConfirm={() => { if (statusConfirm) updateQuoteStatus(statusConfirm.id, statusConfirm.status); }}
-        title="Change Quote Status"
-        message={`Are you sure you want to change the status to "${statusConfirm?.status}"? This will adjust your inventory stock levels.`}
-        confirmLabel="Change Status"
-        variant="warning"
-      />
+      {/* Confirmation Modal */}
+      <AnimatePresence>
+        {confirmModal && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm"
+            onClick={() => setConfirmModal(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="glass-panel p-6 rounded-2xl max-w-sm w-full mx-4 border border-slate-800 shadow-2xl"
+            >
+              <h3 className="text-lg font-semibold text-white">{confirmModal.title}</h3>
+              <p className="text-sm text-slate-400 mt-2">{confirmModal.message}</p>
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setConfirmModal(null)}
+                  className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white bg-slate-900 border border-slate-800 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    const action = confirmModal.onConfirm;
+                    setConfirmModal(null);
+                    action();
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors cursor-pointer"
+                >
+                  {confirmModal.confirmLabel}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
