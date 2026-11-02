@@ -3,3 +3,10 @@
 node_modules/
 dist/
 *.log
+
+# Test artifacts
+playwright-report/
+test-results/
+
+# Windows artifact
+nul
