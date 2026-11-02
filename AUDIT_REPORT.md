@@ -1,96 +1,126 @@
-### Frontend Analysis Report: SheetFlow
+# SheetFlow Frontend Audit Report
 
-This report outlines identified improvements for the SheetFlow frontend, categorized by priority based on impact and implementation effort.
+## 1. User Experience (UX)
+*   **Complicated journeys:** Creating a quote requires selecting from long, un-ordered dropdowns.
+*   **Unnecessary steps:** No quick way to create a quote from the dashboard or CRM view without switching tabs.
+*   **Form friction:** Standard `<select>` elements in `QuoteGenerator` are difficult to use with large datasets.
+*   **Confusing interactions:** The formula engine evaluation in the spreadsheet is powerful but lacks a dedicated UI helper/indicator besides the `fx` badge.
+*   **Lack of feedback:** Success messages are present (toasts), but some bulk operations (CSV import) lack progress indicators.
 
----
+## 2. User Interface (UI)
+*   **Visual Consistency:** Buttons and inputs have varying border-radius and padding across components.
+*   **Spacing:** Dashboard KPI cards have generous padding, but the Recent Quotes table is quite compressed.
+*   **Alignment:** Table headers in `SpreadsheetGrid` and `Dashboard` have slight alignment discrepancies with cell content.
+*   **Responsive Design:** Header tabs overflow on screens smaller than 640px.
 
-### Critical Priority
+## 3. Frontend Performance
+*   **Bundle size:** `jspdf` and `exceljs` are in the main bundle. Total bundle size is likely > 500KB (gzipped).
+*   **Lazy loading:** No route-based or component-based lazy loading implemented.
+*   **Re-renders:** `SpreadsheetGrid` uses `react-window` but the individual row renderers are not memoized, causing full re-renders of the visible list on any cell change.
 
-#### 1. Optimization of Bundle Size via Lazy Loading
-*   **Problem:** The production bundle exceeds 1.8MB, primarily due to heavy libraries (`jspdf`, `jspdf-autotable`, and `exceljs`) being imported at the top level in `exportUtils.ts`.
-*   **Impact:** Slow initial load times and poor performance on low-bandwidth connections.
-*   **Solution:** Move these imports inside their respective export functions using dynamic `import()`.
-*   **Estimated Effort:** Low (1 hour)
+## 4. Accessibility
+*   **ARIA attributes:** Significant lack of `aria-label` on interactive icon buttons.
+*   **Form labels:** Many inputs use `placeholder` as a label, which is an anti-pattern.
+*   **Keyboard navigation:** Modal backdrop doesn't trap focus; some interactive elements (status pills) aren't easily reachable via keyboard.
 
-#### 2. Virtualized List Key Regression
-*   **Problem:** In `SpreadsheetGrid.tsx`, the `FixedSizeList` renderers lack unique `key` props on row elements, causing React to lose track of component identity during scrolls.
-*   **Impact:** Performance degradation during large dataset interaction and potential UI glitches/re-render loops.
-*   **Solution:** Ensure the row wrapper inside the `List` component uses a unique ID (e.g., `row.id`) as its key.
-*   **Estimated Effort:** Low (15 mins)
+## 5. Code Quality
+*   **Code duplication:** UI components like `StatusPill`, `OverflowMenu`, and `SkeletonLoader` are defined locally or duplicated.
+*   **Separation of responsibilities:** `QuoteGenerator.tsx` handles too much local state and complex calculations that could be moved to a custom hook or the store.
+*   **Architecture:** Good use of Zustand slices, but shared types are often redefined.
 
----
+## 6. Design System
+*   **Component reuse:** Low. Many components are "one-offs" with inline Tailwind classes.
+*   **Color consistency:** Generally good thanks to Tailwind 4 `@theme`, but manual hex codes (e.g., in `Dashboard.tsx` for SVG) bypass the theme.
 
-### High Priority
+## 7. Mobile and Responsive
+*   **Overflows:** The spreadsheet grid, while scrollable, is difficult to edit on mobile.
+*   **Touch zones:** Action buttons in tables (Edit/Delete) are too small for reliable touch interaction (approx 30px).
 
-#### 3. Icon-Only Button Accessibility
-*   **Problem:** Numerous buttons (Edit, Delete, Copy, PDF/XLS export) use Lucide icons without `aria-label` or `title` attributes.
-*   **Impact:** Screen reader users cannot identify the purpose of these critical actions.
-*   **Solution:** Add descriptive `aria-label` to all icon-only buttons in `Dashboard.tsx` and `SpreadsheetGrid.tsx`.
-*   **Estimated Effort:** Medium (2 hours)
-
-#### 4. Form Label & ID Association
-*   **Problem:** Form inputs in `WelcomeScreen.tsx` and `QuoteGenerator.tsx` often lack explicit `id` attributes linked to their `<label>` via `htmlFor`.
-*   **Impact:** Poor accessibility and reduced touch targets for mobile users.
-*   **Solution:** Standardize all form fields to use unique IDs and matching labels.
-*   **Estimated Effort:** Medium (3 hours)
-
-#### 5. Native Modal Replacement
-*   **Problem:** Critical actions like deleting a quote or changing status rely on the native `window.confirm`.
-*   **Impact:** Disrupts the "premium" glassmorphism UI aesthetic and provides a poor, non-accessible user experience.
-*   **Solution:** Implement a reusable `<ConfirmationModal />` using Framer Motion to match the design system.
-*   **Estimated Effort:** Medium (4 hours)
-
----
-
-### Medium Priority
-
-#### 6. Grid Cell Memoization
-*   **Problem:** `SpreadsheetGrid` re-renders all visible cells on any state change (e.g., typing in a filter) because there is no memoization on individual cell components.
-*   **Impact:** Noticeable "lag" when typing in filters or editing cells in large sheets.
-*   **Solution:** Extract the cell renderer into a dedicated `GridCell` component wrapped in `React.memo` with a custom comparison function.
-*   **Estimated Effort:** Medium (5 hours)
-
-#### 7. UI Component Standardization
-*   **Problem:** Variance in `rounded-*` (xl vs 2xl) and `px/py` values across similar buttons and inputs in different files.
-*   **Impact:** Visual inconsistency and increased maintenance overhead.
-*   **Solution:** Extract standard `Button`, `Input`, and `Select` components into `src/components/ui/` using the existing Tailwind 4 theme variables.
-*   **Estimated Effort:** High (8 hours)
-
-#### 8. Quote Generator UX: Combobox Pattern
-*   **Problem:** The current search-then-select pattern for products in `QuoteGenerator.tsx` requires two separate interactions.
-*   **Impact:** Friction in the most frequent user journey (drafting quotes).
-*   **Solution:** Combine the search input and select into a single searchable Combobox component.
-*   **Estimated Effort:** Medium (6 hours)
+## 8. Conversion and Engagement
+*   **CTAs:** The primary action "Create Quote" is just another tab, not a prominent "Call to Action".
+*   **Positioning:** Key information like "Low Stock" is buried at the bottom of the dashboard on mobile.
 
 ---
 
-### Low Priority
+## Critical Priority
 
-#### 9. Enhanced Keyboard Navigation
-*   **Problem:** Grid navigation is currently limited to `tabIndex={0}` on rows.
-*   **Impact:** Difficult for power users to navigate cells efficiently without a mouse.
-*   **Solution:** Implement full arrow-key focus management (roving tabindex) within the `SpreadsheetGrid`.
-*   **Estimated Effort:** High (10 hours)
+*   **Problem:** Large PDF/Excel libraries bloated in initial bundle.
+*   **Impact:** Slow initial load and poor mobile performance.
+*   **Solution:** Use dynamic `import()` for `jspdf` and `exceljs` in `exportUtils.ts`.
+    ```typescript
+    // Example: apps/frontend/src/utils/exportUtils.ts
+    export async function exportQuotePdf(quote: ExportFullQuote) {
+      const { default: jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
+      const doc = new jsPDF();
+      // ... rest of the logic
+    }
+    ```
+*   **Estimated Effort:** 1h
 
-#### 10. "Quick Quote" Shortcut
-*   **Problem:** Creating a quote for a specific customer requires navigating to the "Quotes" tab and searching for them again.
-*   **Impact:** Lower engagement and slower workflow.
-*   **Solution:** Add a "Create Quote" action directly on CRM rows in the `SpreadsheetGrid` pre-fills the `QuoteGenerator`.
-*   **Estimated Effort:** Low (2 hours)
+*   **Problem:** Missing ARIA labels and poor keyboard accessibility.
+*   **Impact:** Site is unusable for screen reader users and difficult for keyboard-only users.
+*   **Solution:** Global audit of icon buttons and focus management.
+    ```tsx
+    // Example: apps/frontend/src/components/Dashboard.tsx
+    <button
+      onClick={() => deleteQuote(quote.id)}
+      aria-label={`Delete quote ${quote.quoteNumber}`}
+      className="..."
+    >
+      <Trash2 size={15} />
+    </button>
+    ```
+*   **Estimated Effort:** 4h
+
+## High Priority
+
+*   **Problem:** Form friction in selection (Customers/Products).
+*   **Impact:** Significant UX degradation as the business scales to hundreds of items.
+*   **Solution:** Implement a searchable `Combobox` component for the `QuoteGenerator`.
+*   **Estimated Effort:** 6h
+
+*   **Problem:** Lack of Code Splitting.
+*   **Impact:** All features loaded at once, increasing TTI.
+*   **Solution:** Implement `React.lazy` for `Dashboard`, `SpreadsheetGrid`, and `QuoteGenerator`.
+    ```tsx
+    // Example: apps/frontend/src/App.tsx
+    const Dashboard = React.lazy(() => import('./components/Dashboard'));
+    const SpreadsheetGrid = React.lazy(() => import('./components/SpreadsheetGrid'));
+    // ... use with <Suspense>
+    ```
+*   **Estimated Effort:** 2h
+
+## Medium Priority
+
+*   **Problem:** Inconsistent UI components and lack of a central library.
+*   **Impact:** Design debt and increased development time for new features.
+*   **Solution:** Create a standardized UI kit in `src/components/ui`.
+*   **Estimated Effort:** 12h
+
+*   **Problem:** Small touch targets and poor mobile navigation.
+*   **Impact:** High bounce rate for mobile users.
+*   **Solution:** Implement a responsive navbar and increase button padding for mobile.
+*   **Estimated Effort:** 5h
+
+## Low Priority
+
+*   **Problem:** Formula engine transparency.
+*   **Impact:** Power users might find it hard to debug complex sheet logic.
+*   **Solution:** Add a formula bar or better tooltips for cells with formulas.
+*   **Estimated Effort:** 8h
 
 ---
 
-### Final Top 10 Cost-Effective Improvements
+## Final List: 10 Most Cost-Effective Improvements
 
-| Improvement | Category | Priority | ROI |
-| :--- | :--- | :--- | :--- |
-| **1. Lazy Load Export Libs** | Performance | Critical | Extremely High |
-| **2. Fix Grid Keys** | Technical Debt | Critical | High |
-| **3. ARIA Labels for Icons** | Accessibility | High | High |
-| **4. Memoize Grid Cells** | Performance | Medium | High |
-| **5. Standardize Form Labels/IDs**| Accessibility | High | Medium |
-| **6. Custom Confirm Modal** | UX/UI | High | Medium |
-| **7. "Quick Quote" Action** | UX/Engagement | Low | High |
-| **8. Extract UI Components** | Maintainability| Medium | Medium |
-| **9. Combobox for Products** | UX | Medium | Medium |
-| **10. StatusPill Memoization** | Performance | Medium | Low |
+1.  **Dynamic Import of Export Libraries:** Huge performance gain for minimal effort.
+2.  **Route-level Code Splitting:** Faster initial load by deferring non-essential features.
+3.  **Standardized ARIA Labels:** Essential accessibility fix with very low effort.
+4.  **Global "Create Quote" CTA:** Simple UI addition in the navbar to drive main user action.
+5.  **Searchable Combobox for Selection:** High UX impact for scaling datasets.
+6.  **Memoize Grid Row Renderers:** Improves responsiveness of the spreadsheet during editing.
+7.  **Standardized UI Primitives (Button, Input):** Reduces future technical debt and ensures visual consistency.
+8.  **Responsive Hamburger Menu:** Fixes the broken mobile navigation.
+9.  **Centralized Type Definitions:** Improves maintainability and developer experience.
+10. **Consistent Focus States:** Enhances accessibility and "polish" of the application.

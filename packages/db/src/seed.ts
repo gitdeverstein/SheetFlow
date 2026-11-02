@@ -27,20 +27,18 @@ async function main() {
     console.log('Creating default users...');
     const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'admin123!';
     const demoPassword = process.env.SEED_DEMO_PASSWORD || 'demo1234!';
-    const adminPasswordHash = await argon2.hash(adminPassword);
-    const [adminUser] = await db.insert(users).values([{
+    const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
+    await db.insert(users).values([{
       name: 'Admin',
       email: 'admin@sheetflow.com',
       passwordHash: adminPasswordHash,
-      emailVerified: true,
-    }]).returning();
+    }]);
 
-    const [demoUser] = await db.insert(users).values([{
+    await db.insert(users).values([{
       name: 'John Doe',
       email: 'john@sheetflow.com',
-      passwordHash: await argon2.hash(demoPassword),
-      emailVerified: true,
-    }]).returning();
+      passwordHash: await bcrypt.hash(demoPassword, 12),
+    }]);
 
     console.log('Inserting customers...');
     const [c1, c2, c3, c4] = await db.insert(customers).values([
