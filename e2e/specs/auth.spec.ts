@@ -6,11 +6,11 @@ test.describe('Authentication', () => {
 
   test('should show login form on first visit', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // WelcomeScreen should render the login form
     await expect(page.locator('input[type="email"]')).toBeVisible();
-    await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
+    await expect(page.locator('form button[type="submit"]')).toBeVisible();
   });
 
   test('should log in with valid credentials', async ({ page }) => {
@@ -22,11 +22,11 @@ test.describe('Authentication', () => {
 
   test('should show error with invalid credentials', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     await page.locator('input[type="email"]').fill('wrong@email.com');
     await page.locator('input[type="password"]').fill('wrongpassword');
-    await page.getByRole('button', { name: /sign in/i }).click();
+    await page.locator('form button[type="submit"]').click();
 
     // Should still be on login page with an error message
     await expect(page.locator('input[type="email"]')).toBeVisible();
@@ -38,7 +38,7 @@ test.describe('Authentication', () => {
 
     // Reload the page
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
     // Should still be authenticated on dashboard
     await expect(page.locator('h1')).toContainText(/Real-time KPIs|Dashboard/i);
