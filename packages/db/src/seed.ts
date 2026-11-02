@@ -90,6 +90,9 @@ async function main() {
     console.log('Database seeded successfully!');
     console.log(`  Admin user: admin@sheetflow.com / admin123!`);
     console.log(`  Demo user:  john@sheetflow.com / demo1234!`);
+  } catch (error) {
+    console.error('Error seeding database:', error);
+    process.exit(1);
   } finally {
     await client.end();
   }
