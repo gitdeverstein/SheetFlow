@@ -1,101 +1,150 @@
-# Frontend Audit Report - SheetFlow
+# Frontend Audit Report: SheetFlow
 
-## Executive Summary
-This report analyzes the SheetFlow frontend application across UX, UI, performance, accessibility, and code quality. The primary findings indicate significant technical debt in architecture ("God Component" pattern), performance bottlenecks due to heavy library bundling, and critical accessibility gaps.
-
----
-
-## Critical Priority
-
-### 1. Excessive Bundle Size & Missing Code Splitting
-*   **Problem**: The main bundle is ~1.8MB. Heavy libraries like `exceljs` and `jspdf` are bundled into the initial load.
-*   **Impact**: Slow initial page load (FCP/LCP), especially on mobile or slow connections.
-*   **Solution**: Implement route-level code splitting using `React.lazy` and move export logic to dynamic imports.
-*   **Estimated Effort**: Medium (4-6 hours)
-*   **Example**:
-    ```tsx
-    // In quoteSlice.ts or exportUtils.ts
-    const exportPdf = async (data) => {
-      const { jsPDF } = await import('jspdf');
-      const { default: autoTable } = await import('jspdf-autotable');
-      // ... logic
-    };
-    ```
-
-### 2. God Component Pattern in App.tsx
-*   **Problem**: `App.tsx` manages authentication, theme, navigation, global modals, and toasts.
-*   **Impact**: High risk of regressions, difficult testing, and unnecessary re-renders of the entire app on any state change.
-*   **Solution**: Refactor `App.tsx` into smaller providers (AuthProvider, ThemeProvider, ToastProvider) and use a proper router (e.g., TanStack Router or React Router).
-*   **Estimated Effort**: High (8-12 hours)
+This report provides a comprehensive analysis of the SheetFlow frontend, identifying key areas for improvement across UX, UI, performance, accessibility, and code quality.
 
 ---
 
-## High Priority
+## 1. Critical Priority
 
-### 3. Missing ARIA Attributes and Semantic HTML
-*   **Problem**: Components like `StatusPill` and `OverflowMenu` use interactive `div` or `button` elements without proper ARIA roles (`aria-expanded`, `aria-haspopup`, `role="menu"`).
-*   **Impact**: Poor experience for screen reader users; non-compliance with WCAG.
-*   **Solution**: Use a headless UI library (like Radix UI) or manually add ARIA attributes.
-*   **Estimated Effort**: Medium (4 hours)
+### Heavy Libraries in Main Bundle (Performance)
+* **Problem**: `exceljs` and `jspdf` (combined ~1.2MB minified) are imported statically in `exportUtils.ts`, which is then pulled into the main bundle via the `useSheetStore` dependency chain in `App.tsx`.
+* **Impact**: Significant inflation of the initial bundle size, leading to slower download times and increased Time to Interactive (TTI), especially on slow connections.
+* **Solution**: Use dynamic `import()` within the export functions to lazy-load these libraries only when needed.
+* **Code Example**:
+```typescript
+// apps/frontend/src/utils/exportUtils.ts (Refactored)
+export async function exportQuotePdf(quote: ExportFullQuote): Promise<void> {
+  const { default: jsPDF } = await import('jspdf');
+  const { default: autoTable } = await import('jspdf-autotable');
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  // ... rest of the logic
+}
+```
+* **Estimated Effort**: Low (1-2 hours)
 
-### 4. Horizontal Overflow in SpreadsheetGrid on Mobile
-*   **Problem**: `SpreadsheetGrid.tsx` uses `min-w-[800px]` which forces horizontal scrolling on small viewports.
-*   **Impact**: Broken UI on mobile devices; poor user experience.
-*   **Solution**: Implement a responsive grid that collapses into cards on mobile or uses a more flexible container.
-*   **Estimated Effort**: Medium (4 hours)
-
----
-
-## Medium Priority
-
-### 5. Standard HTML Selects in Quote Generator
-*   **Problem**: Native `<select>` elements are used for customer and product selection, which are difficult to style and lack advanced filtering.
-*   **Impact**: Form friction when dealing with hundreds of products/customers.
-*   **Solution**: Replace with a searchable Combobox component.
-*   **Estimated Effort**: Medium (3 hours)
-
-### 6. Fragile Theme Implementation
-*   **Problem**: `index.css` uses `!important` overrides for light mode styles.
-*   **Impact**: Difficult to maintain and style new components; high risk of "Flash of Unstyled Content" (FOUC) if not handled perfectly.
-*   **Solution**: Use Tailwind's `dark:` variant consistently and avoid global `!important` overrides.
-*   **Estimated Effort**: Low (2 hours)
-
----
-
-## Low Priority
-
-### 7. Redundant Confirmation Dialogs
-*   **Problem**: Uses native `window.confirm` for critical actions.
-*   **Impact**: Poor UX/UI consistency; looks "broken" compared to the premium glassmorphism design.
-*   **Solution**: Create a custom Modal component for confirmations.
-*   **Estimated Effort**: Low (2 hours)
-
-### 8. Lack of Input Feedback
-*   **Problem**: Immediate validation feedback (e.g., password strength, real-time email check) is missing in the `WelcomeScreen`.
-*   **Impact**: Higher form abandonment rates.
-*   **Solution**: Integrate Zod-based real-time validation feedback.
-*   **Estimated Effort**: Low (2 hours)
+### Mobile Layout Breakage (Responsive)
+* **Problem**: `SpreadsheetGrid.tsx` contains a hardcoded `min-w-[800px]` on the grid container.
+* **Impact**: The application is unusable on mobile devices as the grid forces a horizontal overflow that breaks the layout.
+* **Solution**: Remove the hardcoded minimum width and wrap the grid in a container with `overflow-x-auto`.
+* **Code Example**:
+```tsx
+// apps/frontend/src/components/SpreadsheetGrid.tsx
+<div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
+  <div className="overflow-x-auto w-full">
+    {/* Removed min-w-[800px] or made it conditional */}
+    <div className="min-w-max md:min-w-full">
+       {/* ... Grid Content ... */}
+    </div>
+  </div>
+</div>
+```
+* **Estimated Effort**: Medium (3-5 hours)
 
 ---
 
-## Technical Debt Summary
-*   **God Component**: `App.tsx` is over 400 lines and handles too many responsibilities.
-*   **Bundle Bloat**: 1.8MB for a CRUD app is excessive; largely due to `exceljs` and `jspdf`.
-*   **Accessibility**: Wide-spread lack of focus management and ARIA labels.
-*   **Styling**: Use of `!important` in `index.css` indicates a breakdown in the CSS architecture.
-*   **React Warnings**: `SpreadsheetGrid` triggers "unique key" warnings in `react-window` lists, indicating potential reconciliation issues during virtualization.
+## 2. High Priority
+
+### "God Component" Pattern (Code Quality)
+* **Problem**: `App.tsx` manages auth, theme, navigation, and global modals.
+* **Impact**: High technical debt and poor separation of concerns.
+* **Solution**: Extract logic into dedicated Providers and Layout components.
+* **Code Example**:
+```tsx
+// Proposed App structure
+function App() {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <Layout>
+          <Navigation />
+          <MainContent />
+          <ToastContainer />
+        </Layout>
+      </AuthProvider>
+    </ThemeProvider>
+  );
+}
+```
+* **Estimated Effort**: High (1-2 days)
+
+### Accessibility Compliance Gap (Accessibility)
+* **Problem**: Missing ARIA roles and keyboard navigation support.
+* **Impact**: Poor usability for screen reader and keyboard users.
+* **Solution**: Implement standard ARIA roles for navigation and custom components.
+* **Code Example**:
+```tsx
+// Navigation Tabs in App.tsx
+<div role="tablist" className="flex space-x-1">
+  {tabs.map((tab) => (
+    <button
+      key={tab.id}
+      role="tab"
+      aria-selected={activeTab === tab.id}
+      aria-controls={`${tab.id}-panel`}
+      // ...
+    >
+      {tab.label}
+    </button>
+  ))}
+</div>
+```
+* **Estimated Effort**: Medium (1 day)
+
+---
+
+## 3. Medium Priority
+
+### Native UI Friction (UX/UI)
+* **Problem**: Use of native `window.confirm` and standard HTML `select` elements.
+* **Impact**: Jarring experience; poor scalability with large datasets.
+* **Solution**: Implement custom Modals and searchable Comboboxes.
+* **Estimated Effort**: Medium (2 days)
+
+### Spreadsheet Editing Discovery (UX)
+* **Problem**: Double-click requirement for editing is not indicated.
+* **Impact**: Low discoverability of the main data entry feature.
+* **Solution**: Add visual cues like a pencil icon on hover or a "Click to Edit" tooltip.
+* **Estimated Effort**: Low (3-4 hours)
+
+### Focus States Inconsistency (UI/Accessibility)
+* **Problem**: Many interactive elements (especially in `SpreadsheetGrid`) lack clear `:focus-visible` styles.
+* **Impact**: Keyboard users cannot easily track their position on the screen.
+* **Solution**: Standardize focus rings across the application in `index.css`.
+* **Estimated Effort**: Low (2 hours)
+
+---
+
+## 4. Low Priority
+
+### Formula Engine Discoverability (Engagement)
+* **Problem**: Formula support is hidden (requires starting with `=`).
+* **Impact**: Users miss out on advanced calculation features.
+* **Solution**: Add a formula bar or a dedicated "fx" button in the cell editor.
+* **Estimated Effort**: Medium (1-2 days)
+
+### Inconsistent Scrollbars (UI)
+* **Problem**: Default native scrollbars clash with the glassmorphism theme on some browsers.
+* **Impact**: Minor visual inconsistency.
+* **Solution**: Standardize scrollbar styles in `index.css`.
+* **Estimated Effort**: Low (1 hour)
+
+### Route-Level Code Splitting (Performance)
+* **Problem**: All tabs (Dashboard, CRM, Inventory, Quotes) are bundled together.
+* **Impact**: Larger initial bundle than necessary.
+* **Solution**: Use `React.lazy` for tab content.
+* **Estimated Effort**: Medium (4 hours)
 
 ---
 
 ## Top 10 Cost-Effective Improvements
 
-1.  **Dynamic Imports for Exports**: Move `exceljs` and `jspdf` to lazy-loaded functions.
-2.  **Route-Level Code Splitting**: Lazy load Dashboard, CRM, Inventory, and Quote views.
-3.  **ARIA Audit**: Add missing `aria-label`, `aria-expanded`, and `role` attributes to interactive elements.
-4.  **Responsive Grid Fix**: Replace `min-w-[800px]` with a more flexible overflow strategy or card-view for mobile.
-5.  **Searchable Comboboxes**: Upgrade Customer/Product selection in `QuoteGenerator`.
-6.  **Refactor App.tsx**: Extract Toast and Modal logic into separate hooks/components.
-7.  **Theme Refactor**: Remove `!important` from `index.css` and use Tailwind native dark mode support.
-8.  **Custom Confirmation Modals**: Replace `window.confirm` with a branded Modal.
-9.  **Form Validation UI**: Show real-time Zod errors in `QuoteGenerator` and `WelcomeScreen`.
-10. **Pre-fetch Strategy**: Optimize `prefetchData` in `sheetStore.ts` to prioritize the currently active tab.
+1.  **Lazy-load Export Libraries**: (Performance) Immediate ~1.2MB reduction in main bundle.
+2.  **Fix Grid Overflow**: (Mobile) Essential for mobile accessibility.
+3.  **Add ARIA Roles to Nav**: (Accessibility) Quick win for screen reader support.
+4.  **Implement Focus Rings**: (UI/A11y) Improves keyboard navigation instantly.
+5.  **Standardize Scrollbars**: (UI) Easy fix for visual consistency.
+6.  **Replace `window.confirm`**: (UX) Greatly improves the professional feel.
+7.  **Searchable Customer Select**: (UX) Critical for data scalability.
+8.  **Formula Discovery Tooltip**: (Engagement) Unlocks existing power-user features.
+9.  **Route-level Splitting**: (Performance) Faster TTI for all users.
+10. **Refactor App.tsx**: (Maintainability) Long-term benefit for developer velocity.
