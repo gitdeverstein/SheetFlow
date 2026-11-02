@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/sheetflow';
-const { db } = createDb(connectionString);
+const { db, client } = createDb(connectionString);
 
 async function main() {
   console.log('Seeding database...');
@@ -163,9 +163,7 @@ async function main() {
     console.log(`  Demo user:  john@sheetflow.com / demo1234!`);
   } catch (error) {
     console.error('Error seeding database:', error);
-    process.exitCode = 1;
-  } finally {
-    await client.end();
+    throw error;
   }
 
   console.log('Database seeded successfully!');
@@ -174,9 +172,8 @@ async function main() {
 }
 
 main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error('Error seeding database:', error);
+  .catch((err) => {
+    console.error('Fatal seeding error:', err);
     process.exit(1);
   })
   .finally(async () => {
