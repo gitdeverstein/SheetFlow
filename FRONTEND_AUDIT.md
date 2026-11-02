@@ -1,223 +1,238 @@
-# SheetFlow — Comprehensive Frontend Audit & Strategic Improvement Plan
+# SheetFlow Frontend Audit & Analysis Report
 
-## Executive Summary
-
-This comprehensive audit evaluates the entire frontend architecture, UI/UX design, performance, accessibility (WCAG 2.1 AA), code quality, design system consistency, mobile responsiveness, and conversion/engagement mechanisms for **SheetFlow** (a React 19 + TypeScript + Tailwind CSS 4 Single Page Application).
+This document provides a comprehensive frontend analysis of the SheetFlow application across User Experience (UX), User Interface (UI), Performance, Accessibility (a11y), Code Quality & Architecture, Design System Consistency, Mobile & Responsive Design, and Conversion & Engagement.
 
 ---
 
-## Pillar-by-Pillar Analysis
+## 1. Mandatory Analysis
 
-### 1. User Experience (UX)
+### 1.1 User Experience (UX)
+* **Dual-State Desync in Spreadsheet Grid**:
+  - *Complicated Journey*: When editing cells in `SpreadsheetGrid`, edited cell values update `spreadsheetSlice` state (`state.rows[tab]`), while the grid computes rows directly from TanStack Query cache (`customers.map(buildCrmRow)` / `inventory.map(buildInvRow)`). Consequently, cell changes are not reflected visually in the grid until the row is explicitly saved to the server, leading to user confusion and perceived unresponsiveness.
+* **Form Friction in Quote Generator**:
+  - *Friction*: Line items require selecting products from dropdowns where searching requires using a separate text input state (`productSearch[index]`) inside/above each product select box.
+  - *Silent Validation Errors*: Submitting a quote without required fields or with invalid product quantities (e.g. quantity <= 0) returns silently without showing inline error messages or visual validation feedback to the user.
+* **Native `window.confirm` Modal Interruptions**:
+  - *Confusing Interactions*: `Dashboard.tsx` triggers browser-native `window.confirm()` dialogs when transitioning quote status or deleting quotes. Native popups freeze JS execution, look unstyled, and behave unpredictably on mobile browsers.
+* **Lack of Unsaved Changes Warnings**:
+  - *Data Loss Risk*: Changing tabs or closing the browser while cell edits or quote forms are in progress results in silent data loss without confirmation.
 
-#### Identified Friction & Anti-Patterns
-- **Form Cell Editing Desync (`SpreadsheetGrid.tsx`)**: When cells are edited in the grid, changes update Zustand store state locally, but rows are derived directly from TanStack Query's cache (`customers.map(buildCrmRow)`). The edited values do not reflect visually until the user explicitly clicks the "Save" icon button on that row, creating visual desync and user confusion.
-- **Unclear Formula Syntax & Discovery (`SpreadsheetGrid.tsx`)**: Users are expected to know formulas start with `=`, but there is no formula bar, auto-complete helper, or syntax tooltip. Errors show a cryptic `"Calc Error"` or `"Invalid Characters"` without explaining why.
-- **Quote Creation Client Search Friction (`QuoteGenerator.tsx`)**: The client selector dropdown mixes search input with a native `<select>`. Choosing a customer from the dropdown does not clear search state reliably, causing non-matching items to disappear abruptly.
-- **Lack of Confirmation Modals**: Deleting quotes or changing status in `Dashboard.tsx` uses native `window.confirm()`, breaking the custom UI/UX glassmorphism aesthetic.
+### 1.2 User Interface (UI)
+* **Imperative Light Theme `!important` CSS Overrides**:
+  - *Visual Inconsistency*: `index.css` applies `.light :is(.text-white, ...):not(button)... { color: #020617 !important; }`. This forceful override causes unintended text color flipping on icons, badges, and dark container elements inside light mode.
+* **Hardcoded Hex Color Schemes**:
+  - *Color Discrepancies*: `Dashboard.tsx` defines status colors via hardcoded hex strings (`STATUS_COLORS = { Draft: '#64748b', Sent: '#3b82f6', Accepted: '#10b981', Rejected: '#f43f5e' }`) rather than referencing Tailwind CSS variable tokens or design system constants.
+* **Inconsistent Elevation and Radius Tokens**:
+  - Primary interactive buttons mix `rounded-lg`, `rounded-xl`, and `rounded-2xl` borders, with shadow depths varying arbitrarily across components (`shadow-md`, `shadow-lg`, `shadow-2xl`).
+* **Grid Scroll & Pagination Misalignment**:
+  - In `SpreadsheetGrid.tsx`, the virtualized list height calculation (`Math.min(paginatedRows.length * 48, 600)`) combined with static header columns can cause horizontal and vertical scrollbars to misalign relative to the table header.
 
----
+### 1.3 Frontend Performance
+* **Missing `itemKey` in `react-window` Virtualized List**:
+  - *Unnecessary Re-renders*: `SpreadsheetGrid.tsx` uses `FixedSizeList` from `react-window` without providing an `itemKey` prop. React defaults to using array indices as keys, triggering full row DOM reconciliations during sorting, filtering, or pagination, and emitting key warnings in console.
+* **Lack of Route / Component Code Splitting**:
+  - *Initial Bundle Size*: `App.tsx` eagerly imports all views (`Dashboard`, `SpreadsheetGrid`, `QuoteGenerator`, `WelcomeScreen`). All view code is bundled into a single JavaScript chunk, increasing initial page load time and Time To Interactive (TTI).
+* **Over-subscribing Zustand Store**:
+  - Top-level components call `useSheetStore()` without granular selectors. Any state change (e.g. adding a toast notification or changing a search filter) forces re-renders of the entire component tree.
 
-### 2. User Interface (UI)
+### 1.4 Accessibility (a11y)
+* **Virtualized Grid Missing ARIA Semantics**:
+  - The spreadsheet in `SpreadsheetGrid.tsx` uses generic `<div>` elements without `role="grid"`, `role="row"`, `role="columnheader"`, or `role="gridcell"`. Screen reader users cannot navigate or perceive table structure.
+* **Icon-Only Buttons Missing Accessible Labels**:
+  - Actions like Edit (`Edit3`), Delete (`Trash2`), Duplicate (`Copy`), Overflow menu (`MoreHorizontal`), and Theme Toggle lack `aria-label` or `aria-describedby` attributes.
+* **Lack of Focus Trapping in Modals**:
+  - Modals (e.g. Settings dialog, Delete confirmation) do not trap focus. Keyboard navigation (`Tab`) escapes the modal dialog into background DOM elements.
 
-#### Visual Inconsistencies & Hierarchy
-- **Hardcoded Color Schemes vs. Theme Tokens**: `STATUS_COLORS` in `Dashboard.tsx` uses hardcoded hex values (`#64748b`, `#3b82f6`, `#10b981`, `#f43f5e`) for SVG donut chart segments and status indicators, ignoring light/dark CSS variables.
-- **Spacing & Padding Heterogeneity**:
-  - `Dashboard.tsx` uses `p-6 rounded-2xl` for KPI cards.
-  - `SpreadsheetGrid.tsx` uses `p-3` for cells and `p-12` for empty states.
-  - Form controls in `QuoteGenerator.tsx` use `px-4 py-2.5 rounded-xl` vs `px-3 py-2 rounded-lg` in line items, creating visual disharmony.
-- **Table Cell Truncation**: Text cells truncate with `truncate` without displaying `title` or tooltip attributes, hiding long email addresses or client notes on smaller screens.
+### 1.5 Code Quality & Architecture
+* **Dual State Architecture (Query vs Store)**:
+  - Data state is split across TanStack Query (`useCustomers`, `useInventory`, `useQuotes`) and Zustand slices (`spreadsheetSlice`, `customerSlice`). Mutation logic is fragmented across API helpers and store handlers.
+* **Monolithic View Components**:
+  - `App.tsx` manages navbar, profile dropdown, theme toggles, modal dialogs, and auth state in a single file. `Dashboard.tsx` contains SVG chart rendering, status pills, overflow menus, and metric cards together.
+* **Internal Type Redefinitions**:
+  - `App.tsx` defines `interface UserInfo` locally instead of importing shared TypeScript interfaces from `@sheetflow/shared`.
 
----
+### 1.6 Design System Consistency
+* **Modal Re-implementation**:
+  - Multiple components create custom backdrop blur overlays and Framer Motion wrappers rather than sharing a standardized `<Modal>` component.
+* **Inconsistent Form Input Styles**:
+  - Form fields in `WelcomeScreen`, `QuoteGenerator`, and `SpreadsheetGrid` use varying background colors (`bg-slate-900`, `bg-slate-950`), border radii, and padding.
 
-### 3. Frontend Performance
+### 1.7 Mobile and Responsive Design
+* **Touch Targets Below WCAG Standard**:
+  - Table action buttons (`p-1.5`) measure ~28x28px, which is below the WCAG 2.1 AA recommended 44x44px touch target size for touchscreens.
+* **Horizontal Grid Overflow on Mobile**:
+  - `min-w-[800px]` in `SpreadsheetGrid` forces horizontal scrolling on small screens (< 640px). Double-clicking cells on touch devices often triggers unintended row selection or zoom.
 
-#### Bottlenecks & Optimization Opportunities
-- **Virtualization Reconciliation Key**: `react-window`'s `<List>` in `SpreadsheetGrid.tsx` renders row items without an explicit `itemKey` prop, causing React index-key fallback warnings and inefficient DOM re-renders during live cell editing.
-- **Bundle Splitting & Lazy Loading**: All view components (`Dashboard`, `SpreadsheetGrid`, `QuoteGenerator`, `WelcomeScreen`) are directly imported in `App.tsx`, bundling the entire SPA into a single JS payload loaded upfront.
-- **Svg Donut Re-calculations**: Donut slice angles and SVG path calculations in `Dashboard.tsx` execute inline on every render cycle instead of being memoized via `useMemo`.
-
----
-
-### 4. Accessibility (WCAG 2.1 AA Compliance)
-
-#### Non-Compliance Findings
-- **Icon-Only Buttons Missing Accessible Labels**:
-  - Theme toggles, modal close buttons (`X`), edit/duplicate/delete buttons in table rows lack `aria-label` attributes.
-  - Status dropdown triggers in `StatusPill` lack `aria-haspopup` and `aria-expanded` attributes.
-- **Color Contrast Issues in Dark/Light Modes**:
-  - `text-slate-500` (#64748b) on dark background (`#0f172a`) has a contrast ratio of ~3.8:1 (fails WCAG AA 4.5:1 for normal text).
-- **Keyboard Navigation in Spreadsheet Grid**:
-  - Grid cell navigation via Arrow keys is partially implemented, but double-clicking is required to edit cells, making keyboard-only navigation incomplete for accessibility.
-
----
-
-### 5. Code Quality & Architecture
-
-#### Technical Debt & Smells
-- **Duplicated Types & Store Inconsistencies**:
-  - `UserInfo` interface is locally redefined in `App.tsx` rather than exported from a central `@sheetflow/shared` or `types.ts` file.
-  - Store helper functions (`buildCrmRow`, `buildInvRow`) are re-exported through multiple modules (`store/api.ts`, `store/sheetStore.ts`), cluttering import paths.
-- **Global Theme Override Hacks**: `apps/frontend/src/index.css` uses explicit `!important` rules to override text colors in light mode (`.light :is(.text-white, ...)`), indicating fragile theme architecture.
-
----
-
-### 6. Design System Consistency
-
-#### Systemic Discrepancies
-- **Button System Split**: Three distinct button styling patterns exist in the app:
-  1. `bg-brand-500 hover:bg-brand-600 text-white rounded-xl shadow-lg` (Primary)
-  2. `bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl` (Secondary)
-  3. Inline styled buttons with varied padding (`py-2`, `py-2.5`, `py-3`, `py-1.5`).
-- **Notification Toast Inconsistency**: Toast status types (`success`, `info`, `error`) display localized English text headers (`Succès`, `info`, `error`), introducing multi-language inconsistencies.
-
----
-
-### 7. Mobile and Responsive Design
-
-#### Screen Adaptation Deficiencies
-- **Spreadsheet Grid Horizontal Scrolling**: On small mobile devices (<640px), `min-w-[800px]` enforces a fixed table width, requiring wide horizontal scrolling.
-- **Action Buttons Layout on Mobile**:
-  - `Dashboard.tsx` includes a mobile `OverflowMenu`, but `SpreadsheetGrid.tsx` displays full action button sets that overflow small screens.
-- **Touch Target Sizes**: Icon buttons (`p-1.5` with 14px/15px icons) measure ~28px x 28px, missing the WCAG 44px x 44px recommended touch target area.
+### 1.8 Conversion and Engagement Rates
+* **Hidden Guest / Demo Exploration Mode**:
+  - The welcome screen defaults to sign-in/sign-up forms without a prominent "Try Demo" CTA, creating bounce friction for new evaluators.
+* **Sticky Primary Action Missing**:
+  - In `QuoteGenerator.tsx`, the primary CTA ("Create Quote") is positioned at the bottom of the right summary card and scrolls out of view on long quote forms.
 
 ---
 
-### 8. Conversion and Engagement
-
-#### Opportunities for Growth
-- **Empty State Actionability**: Empty states in quotes and inventory grids offer basic messages but lack guided onboarding or sample dataset pre-loading buttons.
-- **KPI Card Interactivity**: KPI cards on the Dashboard are purely informational; clicking "Stock Alerts" or "Total Customers" does not navigate or apply filters to the corresponding tabs.
-- **Quote Lifecycle Automation**: Expired quotes display an "Expired" badge, but do not provide a one-click "Re-issue / Renew Quote" action to drive sales velocity.
-
----
-
-## Actionable Report by Priority
+## 2. Priority Issue Breakdown
 
 ### Critical Priority
 
-#### Issue 1: Dual-State Grid Desync & Data Loss Exposure
-- **Problem**: In `SpreadsheetGrid.tsx`, cell edits update local Zustand state, but `sortedRows` derives directly from TanStack Query cache (`customers` / `inventory`). Cell modifications revert visually if filtered or sorted before explicitly hitting "Save".
-- **Impact**: Users perceive data loss or system unresponsiveness when editing spreadsheet cells.
-- **Solution**:
-  Compute grid rows by merging TanStack Query base data with modified Zustand local row drafts prior to sorting/filtering.
-  ```typescript
-  // SpreadsheetGrid.tsx
-  const rows = useMemo(() => {
-    const baseRows = tab === 'crm' ? customers.map(buildCrmRow) : inventory.map(buildInvRow);
-    const draftRows = localDrafts[tab] || {};
-    return baseRows.map((row) => draftRows[row.id] ? { ...row, cells: { ...row.cells, ...draftRows[row.id] } } : row);
-  }, [tab, customers, inventory, localDrafts]);
-  ```
-- **Estimated Effort**: 3 hours
+#### 1. Dual-State Data Desync in Spreadsheet Grid
+* **Problem**: In `SpreadsheetGrid.tsx`, rows are derived directly from TanStack Query (`customers.map(buildCrmRow)`), whereas cell edits update `spreadsheetSlice.rows`. Unsaved cell modifications do not render in the grid cells until saved, causing visual desync.
+* **Impact**: Critical UX breakdown; users cannot see their cell typing reflected unless saved immediately or re-rendered.
+* **Solution**: Compute rendered row cells by merging local `spreadsheetSlice` staged edits on top of TanStack Query cached data.
+* **Estimated Effort**: 3 - 4 hours.
+* **Code Example**:
+```tsx
+// In SpreadsheetGrid.tsx
+const storeRows = useSheetStore((s) => s.rows[tab]);
+const mergedRows = useMemo(() => {
+  return queryRows.map((qRow) => {
+    const localRow = storeRows.find((r) => r.id === qRow.id);
+    if (!localRow) return qRow;
+    return {
+      ...qRow,
+      cells: { ...qRow.cells, ...localRow.cells }
+    };
+  });
+}, [queryRows, storeRows, tab]);
+```
 
-#### Issue 2: Hardcoded Database Connection Teardown Failure
-- **Problem**: `packages/db/src/seed.ts` does not destructure `{ db, client }` from `createDb()`, causing `db.delete(...)` to throw `TypeError: db.delete is not a function` during `npm run seed`.
-- **Impact**: CI/CD pipelines fail automated database initialization during E2E test runs.
-- **Solution**:
-  Destructure `{ db, client }` in `packages/db/src/seed.ts` and close `client` in a `finally` block.
-  ```typescript
-  // packages/db/src/seed.ts
-  const { db, client } = createDb(connectionString);
-  try {
-    // seed logic
-  } finally {
-    await client.end();
-  }
-  ```
-- **Estimated Effort**: 0.5 hours
+#### 2. Missing `itemKey` in `react-window` FixedSizeList
+* **Problem**: `SpreadsheetGrid.tsx` renders `<List>` without `itemKey`.
+* **Impact**: React console key warnings (`Each child in a list should have a unique "key" prop`), inefficient DOM node destruction/re-creation during sorting, filtering, and pagination.
+* **Solution**: Add `itemKey={(index, data) => data[index].id}` to `FixedSizeList`.
+* **Estimated Effort**: 30 minutes.
+* **Code Example**:
+```tsx
+<List
+  height={Math.min(paginatedRows.length * 48, 600)}
+  itemCount={paginatedRows.length}
+  itemSize={48}
+  itemData={paginatedRows}
+  itemKey={(index, data) => data[index].id}
+  width="100%"
+>
+  {/* Row Renderer */}
+</List>
+```
 
 ---
 
 ### High Priority
 
-#### Issue 3: Missing `itemKey` in Virtualized Row List (`react-window`)
-- **Problem**: `<List>` in `SpreadsheetGrid.tsx` uses default index key reconciliation, triggering React key warnings during sorting/filtering.
-- **Impact**: Degraded virtual list rendering performance and DOM state leaks across virtualized rows.
-- **Solution**:
-  Provide an explicit `itemKey` prop returning the unique row ID.
-  ```typescript
-  // SpreadsheetGrid.tsx
-  <List
-    height={Math.min(paginatedRows.length * 48, 600)}
-    itemCount={paginatedRows.length}
-    itemSize={48}
-    width="100%"
-    itemKey={(index) => paginatedRows[index].id}
-  >
-  ```
-- **Estimated Effort**: 0.5 hours
+#### 3. Standardize Custom Modal for `window.confirm` Replacement
+* **Problem**: Native `window.confirm()` is used in `Dashboard.tsx` for quote status transitions and deletions.
+* **Impact**: Destroys app aesthetics, blocks main UI thread, fails in modern webview containers.
+* **Solution**: Replace `window.confirm()` with an accessible `ConfirmModal` component powered by Framer Motion.
+* **Estimated Effort**: 2 hours.
+* **Code Example**:
+```tsx
+// ConfirmModal.tsx
+export function ConfirmModal({ isOpen, title, message, onConfirm, onClose }: ConfirmModalProps) {
+  if (!isOpen) return null;
+  return (
+    <AnimatePresence>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="glass-panel p-6 rounded-2xl max-w-sm w-full">
+          <h3 className="text-lg font-bold text-white">{title}</h3>
+          <p className="text-sm text-slate-400 mt-2">{message}</p>
+          <div className="flex justify-end gap-3 mt-6">
+            <button onClick={onClose} className="px-4 py-2 text-sm bg-slate-800 rounded-xl text-slate-300">Cancel</button>
+            <button onClick={() => { onConfirm(); onClose(); }} className="px-4 py-2 text-sm bg-brand-500 text-white rounded-xl">Confirm</button>
+          </div>
+        </motion.div>
+      </div>
+    </AnimatePresence>
+  );
+}
+```
 
-#### Issue 4: Route-Level Code Splitting & Lazy Loading
-- **Problem**: Main view components (`Dashboard`, `SpreadsheetGrid`, `QuoteGenerator`) are synchronously imported in `App.tsx`.
-- **Impact**: Increased initial JavaScript bundle size, slowing First Contentful Paint (FCP) and Time to Interactive (TTI).
-- **Solution**:
-  Implement React `lazy()` and `<Suspense>` boundary in `App.tsx`.
-  ```typescript
-  // App.tsx
-  const Dashboard = lazy(() => import('./components/Dashboard.js'));
-  const SpreadsheetGrid = lazy(() => import('./components/SpreadsheetGrid.js'));
-  const QuoteGenerator = lazy(() => import('./components/QuoteGenerator.js'));
+#### 4. Route Code Splitting with React `lazy` & `Suspense`
+* **Problem**: Eager loading of view components in `App.tsx`.
+* **Impact**: Unnecessary initial bundle download for unused tabs, reducing initial lighthouse score.
+* **Solution**: Implement `React.lazy` for `Dashboard`, `SpreadsheetGrid`, `QuoteGenerator`, and `WelcomeScreen`.
+* **Estimated Effort**: 1 hour.
+* **Code Example**:
+```tsx
+import { lazy, Suspense } from 'react';
+const Dashboard = lazy(() => import('./components/Dashboard.js'));
+const SpreadsheetGrid = lazy(() => import('./components/SpreadsheetGrid.js'));
+const QuoteGenerator = lazy(() => import('./components/QuoteGenerator.js'));
 
-  // inside render
-  <Suspense fallback={<SkeletonLoader variant="card" count={3} />}>
-    {activeTab === 'dashboard' && <Dashboard />}
-  </Suspense>
-  ```
-- **Estimated Effort**: 1.5 hours
+// Usage:
+<Suspense fallback={<SkeletonLoader variant="card" count={3} />}>
+  {activeTab === 'dashboard' && <Dashboard />}
+</Suspense>
+```
+
+#### 5. Accessible ARIA Grid and Screen Reader Enhancements
+* **Problem**: `SpreadsheetGrid` lacks ARIA roles and keyboard accessibility attributes.
+* **Impact**: Total screen reader non-compliance (WCAG 2.1 AA failure).
+* **Solution**: Add `role="grid"`, `role="row"`, `role="columnheader"`, `role="gridcell"`, and `aria-label` tags.
+* **Estimated Effort**: 2 hours.
+* **Code Example**:
+```tsx
+<div role="grid" aria-label={`${tab === 'crm' ? 'Customer' : 'Inventory'} Spreadsheet`} className="min-w-[800px]">
+  <div role="row" className="grid border-b border-slate-800 bg-slate-900/40">
+    {columns.map((col) => (
+      <div key={col.id} role="columnheader" aria-sort={sort?.column === col.id ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
+        {col.name}
+      </div>
+    ))}
+  </div>
+</div>
+```
 
 ---
 
 ### Medium Priority
 
-#### Issue 5: Non-Accessible Icon Buttons & Controls
-- **Problem**: Icon-only action buttons across `Dashboard.tsx`, `SpreadsheetGrid.tsx`, and `App.tsx` lack `aria-label` attributes.
-- **Impact**: Screen readers cannot announce button actions to visually impaired users.
-- **Solution**: Add descriptive `aria-label` and `title` attributes to all icon buttons.
-  ```html
-  <button aria-label="Edit Quote" title="Edit Quote" onClick={...}>
-    <Edit3 size={15} />
-  </button>
-  ```
-- **Estimated Effort**: 1 hour
+#### 6. Clean Up Light Theme CSS `!important` Rules
+* **Problem**: Global `.light` CSS rule in `index.css` forcefully overrides text colors with `!important`.
+* **Impact**: Fragile styling, unexpected visual bugs on icons, buttons, and custom badges in light mode.
+* **Solution**: Refactor theme definitions to semantic CSS custom properties (`--text-primary`, `--text-secondary`, `--bg-surface`) without `!important` specificity overrides.
+* **Estimated Effort**: 2 hours.
 
-#### Issue 6: KPI Card Navigation Interactivity
-- **Problem**: KPI summary cards on the Dashboard are static displays.
-- **Impact**: Missed opportunity to streamline navigation workflow for users investigating stock alerts or pipeline items.
-- **Solution**: Make KPI cards clickable to switch tabs and pre-apply relevant filters.
-  ```typescript
-  <div
-    onClick={() => { setFilter('stock', 'low'); setActiveTab('inventory'); }}
-    className="glass-panel p-6 rounded-2xl cursor-pointer hover:border-brand-500/40 transition-all"
-  >
-  ```
-- **Estimated Effort**: 1 hour
+#### 7. Granular Zustand Selector Subscriptions
+* **Problem**: Components subscribe to the entire Zustand store object (`useSheetStore()`).
+* **Impact**: Frequent unnecessary re-renders across all active tab components.
+* **Solution**: Wrap store usage in granular selectors (e.g. `const activeTab = useSheetStore((s) => s.activeTab)`).
+* **Estimated Effort**: 1.5 hours.
+
+#### 8. Form Validation & Error Feedback in Quote Generator
+* **Problem**: Form submission fails silently when fields are missing or numbers are invalid.
+* **Impact**: High form abandonment and user frustration.
+* **Solution**: Display clear inline validation messages and highlight erroneous product input fields.
+* **Estimated Effort**: 1.5 hours.
 
 ---
 
 ### Low Priority
 
-#### Issue 7: Inconsistent Toast Header Localization
-- **Problem**: Toasts in `App.tsx` display `"Succès"` for `success` type, while other types render `"info"` / `"error"`.
-- **Impact**: Minor English/French UI text mixing inconsistency.
-- **Solution**: Standardize toast headings to English constants (`Success`, `Info`, `Error`).
-- **Estimated Effort**: 0.25 hours
+#### 9. Standardize Touch Target Sizes to Minimum 44px
+* **Problem**: Action buttons in tables are ~28x28px (`p-1.5`).
+* **Impact**: Misactions and difficulty tapping buttons on mobile devices.
+* **Solution**: Increase touch target padding (`p-2.5` or `min-h-[44px] min-w-[44px]`) on mobile viewports.
+* **Estimated Effort**: 1 hour.
+
+#### 10. Prominent "Try Guest Mode" CTA on Welcome Screen
+* **Problem**: Demo exploration option is hidden or absent for new visitors.
+* **Impact**: Lower initial conversion rate for prospects testing the platform.
+* **Solution**: Add a clear "Explore as Guest" button on the Welcome Screen.
+* **Estimated Effort**: 45 minutes.
 
 ---
 
-## Top 10 Cost-Effective Improvements
+## 3. Top 10 Most Cost-Effective Improvements
 
-| # | Improvement | Pillar | Impact | Effort |
-|---|---|---|---|---|
-| 1 | **Fix Database Seed Script Client Destructuring** | Code / Pipeline | Critical (Fixes CI build) | 0.5 h |
-| 2 | **Sync Local Cell Drafts with Grid Rows Before Render** | UX / Quality | Critical (Prevents edit desync) | 3.0 h |
-| 3 | **Add `itemKey` to Virtualized Row List (`react-window`)** | Performance | High (Eliminates key warnings) | 0.5 h |
-| 4 | **Add Route-Level Code Splitting (`React.lazy`)** | Performance | High (Faster FCP/TTI) | 1.5 h |
-| 5 | **Interactive KPI Cards with Instant Filter Routing** | UX / Conversion | High (Improves workflow) | 1.0 h |
-| 6 | **Add `aria-label` Attributes to All Icon Buttons** | Accessibility | High (WCAG AA compliance) | 1.0 h |
-| 7 | **Standardize Button System into Reusable Component** | Design System | Medium (UI consistency) | 2.0 h |
-| 8 | **Custom Framer Motion Confirm Modal for Deletions** | UI / UX | Medium (Replaces native dialogs) | 1.5 h |
-| 9 | **Synchronize Chart SVG Colors with Theme Variables** | UI / Design System | Medium (Theme fidelity) | 1.0 h |
-| 10 | **Formula Helper Bar / Syntax Tooltip for Cells** | UX / Feature | Medium (Formula discoverability) | 2.5 h |
-
----
+| # | Improvement | Domain | Impact | Effort | Value / Cost Ratio |
+|---|---|---|---|---|---|
+| **1** | Add `itemKey` to `react-window` `FixedSizeList` | Performance | High | 30 mins | **Very High** |
+| **2** | Add `ConfirmModal` to replace native `window.confirm` | UX / UI | High | 2 hours | **Very High** |
+| **3** | Merge local cell edits with TanStack Query grid rows | UX / Reliability | Critical | 3 hours | **Very High** |
+| **4** | Route code splitting with `React.lazy` & `Suspense` | Performance | High | 1 hour | **High** |
+| **5** | Add ARIA grid roles & icon `aria-label` attributes | Accessibility | High | 2 hours | **High** |
+| **6** | Replace light mode CSS `!important` with CSS variable tokens | Design System / UI | Medium | 2 hours | **High** |
+| **7** | Add inline error feedback to Quote Generator form | UX | Medium | 1.5 hours | **High** |
+| **8** | Add "Try Guest Mode" CTA on Welcome Screen | Conversion | High | 45 mins | **High** |
+| **9** | Refactor Zustand store subscriptions to granular selectors | Performance | Medium | 1.5 hours | **Medium** |
+| **10** | Enforce WCAG 44px touch targets on mobile tables | Mobile / a11y | Medium | 1 hour | **Medium** |
