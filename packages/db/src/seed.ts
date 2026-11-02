@@ -49,7 +49,7 @@ async function main() {
     ]).returning();
 
     console.log('Inserting inventory...');
-    const [p1, p2, p3, p4, p5, p6] = await db.insert(inventory).values([
+    const [p1, p2, p3, p4, p5] = await db.insert(inventory).values([
       { sku: 'WGT-001', name: 'Premium Widget (Gold)', stock: 45, alertThreshold: 10, price: '149.99' },
       { sku: 'WGT-002', name: 'Premium Widget (Silver)', stock: 120, alertThreshold: 20, price: '89.99' },
       { sku: 'GDT-001', name: 'Ergonomic Gadget (Standard)', stock: 8, alertThreshold: 15, price: '249.50' },
@@ -92,7 +92,7 @@ async function main() {
     console.log(`  Demo user:  john@sheetflow.com / demo1234!`);
   } catch (error) {
     console.error('Error seeding database:', error);
-    process.exit(1);
+    process.exitCode = 1;
   } finally {
     await client.end();
   }
