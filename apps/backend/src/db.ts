@@ -2,6 +2,9 @@ import { createDb } from '@sheetflow/db';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import type * as schema from '@sheetflow/db';
 import type { Sql } from 'postgres';
+
+/** Transaction client type derived from the DB instance for type-safe transaction callbacks. */
+export type TransactionClient = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0];
 import { env } from './config.js';
 
 let dbInstance: PostgresJsDatabase<typeof schema> | null = null;

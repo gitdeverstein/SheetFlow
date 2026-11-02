@@ -2,20 +2,27 @@ import { Hono, type Context } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import bcrypt from 'bcryptjs';
+import * as argon2 from 'argon2';
 import crypto from 'crypto';
 import { env } from '../config.js';
 import { getDb } from '../db.js';
-import { users, sessions } from '@sheetflow/db';
+import { users, sessions, verificationTokens } from '@sheetflow/db';
 import { eq } from 'drizzle-orm';
+import { sendVerificationEmail } from '../services/emailService.js';
 
 const router = new Hono();
 
 // ── Validation Schemas ───────────────────────────────────────────────────────
+const passwordSchema = z.string()
+  .min(8, 'Password must be at least 8 characters')
+  .max(128)
+  .regex(/[A-Z]/, 'Password must contain an uppercase letter')
+  .regex(/[0-9]/, 'Password must contain a number')
+  .regex(/[^a-zA-Z0-9]/, 'Password must contain a special character');
+
 const RegisterSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters').max(100),
   email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters').max(128),
+  password: passwordSchema,
 });
 
 const LoginSchema = z.object({
@@ -39,7 +46,7 @@ function setSessionCookie(c: Context, sid: string) {
   setCookie(c, SESSION_COOKIE, sid, {
     httpOnly: true,
     secure: isProd,
-    sameSite: 'Lax',
+    sameSite: 'Strict',
     path: '/',
     maxAge: env.SESSION_EXPIRES_IN_SEC,
   });
@@ -65,25 +72,39 @@ async function destroySession(c: Context) {
   clearSessionCookie(c);
 }
 
+// ── Helpers (verification tokens) ───────────────────────────────────────────
+function createVerificationToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+async function storeVerificationToken(userId: string): Promise<string> {
+  const token = createVerificationToken();
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  await getDb().insert(verificationTokens).values({ userId, token, expiresAt });
+  return token;
+}
+
 // ── POST /register ───────────────────────────────────────────────────────────
 router.post('/register', zValidator('json', RegisterSchema), async (c) => {
-  const { name, email, password } = c.req.valid('json');
+  const { email, password } = c.req.valid('json');
 
   const [existing] = await getDb().select().from(users).where(eq(users.email, email));
   if (existing) {
     return c.json({ error: 'An account with this email already exists' }, 409);
   }
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  const passwordHash = await argon2.hash(password);
   const [created] = await getDb()
     .insert(users)
-    .values({ name, email, passwordHash })
-    .returning({ id: users.id, name: users.name, email: users.email });
+    .values({ email, passwordHash })
+    .returning({ id: users.id, email: users.email });
 
-  await createSession(c, created.id);
+  // Generate verification token and send email
+  const token = await storeVerificationToken(created.id);
+  await sendVerificationEmail(created.email, token);
 
   return c.json({
-    user: { id: created.id, name: created.name, email: created.email },
+    message: 'Account created. Please check your email to verify your account.',
   }, 201);
 });
 
@@ -100,7 +121,11 @@ router.post('/login', zValidator('json', LoginSchema), async (c) => {
     return c.json({ error: 'This account uses Google sign-in. Please sign in with Google.' }, 400);
   }
 
-  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!user.emailVerified) {
+    return c.json({ error: 'Please verify your email before logging in. Check your inbox for the verification link.' }, 403);
+  }
+
+  const valid = await argon2.verify(user.passwordHash, password);
   if (!valid) {
     return c.json({ error: 'Invalid email or password' }, 401);
   }
@@ -108,7 +133,7 @@ router.post('/login', zValidator('json', LoginSchema), async (c) => {
   await createSession(c, user.id);
 
   return c.json({
-    user: { id: user.id, name: user.name, email: user.email },
+    user: { id: user.id, name: user.name, email: user.email, emailVerified: user.emailVerified },
   });
 });
 
@@ -124,14 +149,14 @@ router.get('/google', async (c) => {
   setCookie(c, 'oauth_state', state, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'Lax',
+    sameSite: 'Strict',
     path: '/',
     maxAge: 600,
   });
   setCookie(c, 'oauth_nonce', nonce, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'Lax',
+    sameSite: 'Strict',
     path: '/',
     maxAge: 600,
   });
@@ -158,6 +183,8 @@ router.get('/google/callback', async (c) => {
     return c.redirect(`${env.GOOGLE_CALLBACK_URL?.replace('/api/auth/google/callback', '') || 'http://localhost:5173'}?error=oauth_failed`);
   }
 
+  // Read nonce before clearing cookies for verification against the ID token
+  const storedNonce = getCookie(c, 'oauth_nonce');
   deleteCookie(c, 'oauth_state', { path: '/' });
   deleteCookie(c, 'oauth_nonce', { path: '/' });
 
@@ -184,7 +211,20 @@ router.get('/google/callback', async (c) => {
       return c.redirect('http://localhost:5173?error=oauth_failed');
     }
 
-    const tokens = await tokenRes.json() as { access_token: string };
+    const tokens = await tokenRes.json() as { access_token: string; id_token?: string };
+
+    // Verify the nonce from the ID token (OpenID Connect anti-replay protection)
+    if (tokens.id_token && storedNonce) {
+      const idTokenParts = tokens.id_token.split('.');
+      if (idTokenParts.length !== 3) {
+        return c.redirect('http://localhost:5173?error=oauth_failed');
+      }
+      const payload = JSON.parse(Buffer.from(idTokenParts[1], 'base64url').toString('utf-8'));
+      if (payload.nonce !== storedNonce) {
+        return c.redirect('http://localhost:5173?error=oauth_failed');
+      }
+    }
+
     const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     });
@@ -223,7 +263,7 @@ router.get('/google/callback', async (c) => {
     if (userByEmail) {
       await getDb()
         .update(users)
-        .set({ googleId: googleUser.id })
+        .set({ googleId: googleUser.id, emailVerified: true })
         .where(eq(users.id, userByEmail.id));
       await createSession(c, userByEmail.id);
       return c.redirect(frontendUrl);
@@ -235,6 +275,7 @@ router.get('/google/callback', async (c) => {
         name: googleUser.name,
         email: googleUser.email,
         googleId: googleUser.id,
+        emailVerified: true,
       })
       .returning({ id: users.id });
 
@@ -244,6 +285,51 @@ router.get('/google/callback', async (c) => {
     console.error('Google OAuth callback error:', err);
     return c.redirect('http://localhost:5173?error=oauth_failed');
   }
+});
+
+// ── GET /verify ──────────────────────────────────────────────────────────────
+router.get('/verify', zValidator('query', z.object({ token: z.string().min(1) })), async (c) => {
+  const { token } = c.req.valid('query');
+
+  const [vt] = await getDb()
+    .select()
+    .from(verificationTokens)
+    .where(eq(verificationTokens.token, token));
+
+  if (!vt || new Date() > vt.expiresAt) {
+    if (vt) {
+      await getDb().delete(verificationTokens).where(eq(verificationTokens.id, vt.id));
+    }
+    return c.json({ error: 'Invalid or expired verification link.' }, 400);
+  }
+
+  await getDb().update(users).set({ emailVerified: true }).where(eq(users.id, vt.userId));
+  await getDb().delete(verificationTokens).where(eq(verificationTokens.id, vt.id));
+
+  return c.json({ message: 'Email verified successfully. You can now log in.' });
+});
+
+// ── POST /resend-verification ────────────────────────────────────────────────
+router.post('/resend-verification', zValidator('json', z.object({ email: z.string().email() })), async (c) => {
+  const { email } = c.req.valid('json');
+
+  const [user] = await getDb().select().from(users).where(eq(users.email, email));
+  if (!user) {
+    // Don't reveal whether the email exists
+    return c.json({ message: 'If an account exists, a verification email has been sent.' });
+  }
+
+  if (user.emailVerified) {
+    return c.json({ message: 'This account is already verified. You can log in.' });
+  }
+
+  // Invalidate old tokens for this user
+  await getDb().delete(verificationTokens).where(eq(verificationTokens.userId, user.id));
+
+  const token = await storeVerificationToken(user.id);
+  await sendVerificationEmail(user.email, token);
+
+  return c.json({ message: 'If an account exists, a verification email has been sent.' });
 });
 
 // ── POST /logout ─────────────────────────────────────────────────────────────
@@ -274,7 +360,7 @@ router.get('/me', async (c) => {
     }
 
     const [user] = await getDb()
-      .select({ id: users.id, name: users.name, email: users.email })
+      .select({ id: users.id, name: users.name, email: users.email, emailVerified: users.emailVerified })
       .from(users)
       .where(eq(users.id, session.userId));
 

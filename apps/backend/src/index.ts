@@ -26,6 +26,14 @@ if (!env.ALLOWED_ORIGINS) {
 
 const app = new Hono();
 
+// Stricter rate limiting for auth routes to prevent brute-force attacks
+app.use('/api/auth/*', rateLimiter({
+  windowMs: 60000,
+  limit: 10,
+  message: { error: 'Too many requests' },
+  keyGenerator: (c) => c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || 'unknown',
+}));
+
 // Global Middleware
 app.use('*', rateLimiter({
   windowMs: env.RATE_LIMIT_WINDOW_MS,

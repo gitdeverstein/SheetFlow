@@ -4,7 +4,7 @@ import { getDb } from '../db.js';
 import { sessions, users } from '@sheetflow/db';
 import { eq } from 'drizzle-orm';
 
-export interface SessionUser {
+interface SessionUser {
   id: string;
   name: string;
   email: string;
