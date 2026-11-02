@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { HTTPException } from 'hono/http-exception';
-import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, QUOTE_STATUSES, QuoteSchema } from '@sheetflow/shared';
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, QUOTE_STATUSES, QuoteSchema, TAX_RATE } from '@sheetflow/shared';
 import { QuoteService } from '../services/quoteService.js';
 import { resolveCatalogPrices } from '../services/priceService.js';
 
@@ -38,7 +38,7 @@ router.post('/', zValidator('json', QuoteSchema), async (c) => {
   for (const item of correctedItems) {
     calculatedTotal += item.quantity * item.unitPrice;
   }
-  calculatedTotal = Math.round(calculatedTotal * 1.20 * 100) / 100;
+  calculatedTotal = Math.round(calculatedTotal * (1 + TAX_RATE) * 100) / 100;
 
   const quoteNumber = validated.quoteNumber || `QT-${new Date().getFullYear()}-${crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase()}`;
   const quotePayload = {
@@ -66,7 +66,7 @@ router.put('/:id', zValidator('param', z.object({ id: z.string().uuid() })), zVa
   for (const item of correctedItems) {
     calculatedTotal += item.quantity * item.unitPrice;
   }
-  calculatedTotal = Math.round(calculatedTotal * 1.20 * 100) / 100;
+  calculatedTotal = Math.round(calculatedTotal * (1 + TAX_RATE) * 100) / 100;
 
   const quotePayload = {
     ...validated,

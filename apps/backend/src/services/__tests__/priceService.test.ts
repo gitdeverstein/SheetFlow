@@ -79,6 +79,6 @@ describe('priceService', () => {
   it('should throw if a product is not found', async () => {
     const items = [{ productId: 'missing-id', name: 'Ghost', quantity: 1, unitPrice: 0 }];
     mockDb.select.mockReturnValue(qb([]));
-    await expect(resolveCatalogPrices(items)).rejects.toThrow('Produit');
+    await expect(resolveCatalogPrices(items)).rejects.toThrow('Product(s) not found');
   });
 });

@@ -18,7 +18,7 @@ export async function resolveCatalogPrices<T extends { productId: string; unitPr
 
   const unknown = productIds.filter(id => !priceMap.has(id));
   if (unknown.length > 0) {
-    throw new HTTPException(400, { message: `Produit(s) introuvable(s): ${unknown.join(', ')}` });
+    throw new HTTPException(400, { message: `Product(s) not found: ${unknown.join(', ')}` });
   }
 
   return items.map(item => ({ ...item, unitPrice: priceMap.get(item.productId)! }));

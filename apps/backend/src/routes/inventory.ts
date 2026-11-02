@@ -25,7 +25,7 @@ router.post('/import', zValidator('json', ImportSchema), async (c) => {
 });
 
 // Mount CRUD routes at /
-const crudRouter = createCrudRouter('/api/inventory', InventoryService, InventoryItemSchema, InventoryItemSchema.partial(), 'Item');
+const crudRouter = createCrudRouter(InventoryService, InventoryItemSchema, InventoryItemSchema.partial(), 'Item');
 router.route('/', crudRouter);
 
 export default router;

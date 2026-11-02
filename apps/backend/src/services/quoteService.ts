@@ -1,4 +1,4 @@
-import { getDb } from '../db.js';
+import { getDb, type TransactionClient } from '../db.js';
 import { quotes, quoteItems, customers, inventory } from '@sheetflow/db';
 import { eq, desc, sql, inArray, count } from 'drizzle-orm';
 import { HTTPException } from 'hono/http-exception';
@@ -16,22 +16,23 @@ interface CreateQuoteData {
 
 const allowedTransitions = QUOTE_STATUS_TRANSITIONS;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function deductStock(tx: any, items: Pick<QuoteItem, 'productId' | 'quantity'>[]) {
+/** Type for raw SQL execute results that also include the postgres-js rows property. */
+type ExecResult = { rows?: Array<Record<string, unknown>> } & Array<Record<string, unknown>>;
+
+async function deductStock(tx: TransactionClient, items: Pick<QuoteItem, 'productId' | 'quantity'>[]) {
   const sorted = [...items].sort((a, b) => a.productId.localeCompare(b.productId));
   for (const item of sorted) {
-    const result = await tx.execute(sql`SELECT stock FROM ${inventory} WHERE id = ${item.productId} FOR UPDATE`);
+    const result = await tx.execute(sql`SELECT stock FROM ${inventory} WHERE id = ${item.productId} FOR UPDATE`) as unknown as ExecResult;
     const invItem = result.rows?.[0] ?? result[0];
-    if (!invItem) throw new HTTPException(400, { message: `Produit introuvable: ${item.productId}` });
+    if (!invItem) throw new HTTPException(400, { message: `Product not found: ${item.productId}` });
     if (Number(invItem.stock) < item.quantity) {
-      throw new HTTPException(400, { message: 'Stock insuffisant' });
+      throw new HTTPException(400, { message: 'Insufficient stock' });
     }
     await tx.update(inventory).set({ stock: sql`stock - ${item.quantity}` }).where(eq(inventory.id, item.productId));
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function restoreStock(tx: any, items: Pick<QuoteItem, 'productId' | 'quantity'>[]) {
+async function restoreStock(tx: TransactionClient, items: Pick<QuoteItem, 'productId' | 'quantity'>[]) {
   const sorted = [...items].sort((a, b) => a.productId.localeCompare(b.productId));
   for (const item of sorted) {
     await tx.update(inventory).set({ stock: sql`stock + ${item.quantity}` }).where(eq(inventory.id, item.productId));
@@ -40,8 +41,7 @@ async function restoreStock(tx: any, items: Pick<QuoteItem, 'productId' | 'quant
 
 /** Apply stock deltas for an Accepted→Accepted update, sorted by productId to prevent deadlocks. */
 async function applyStockDelta(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  tx: any,
+  tx: TransactionClient,
   oldItems: Pick<QuoteItem, 'productId' | 'quantity'>[],
   newItems: Pick<QuoteItem, 'productId' | 'quantity'>[],
 ) {
@@ -52,14 +52,20 @@ async function applyStockDelta(
   const sorted = [...deltas.entries()].sort(([a], [b]) => a.localeCompare(b));
   for (const [prodId, delta] of sorted) {
     if (delta === 0) continue;
-    const result = await tx.execute(sql`SELECT stock FROM ${inventory} WHERE id = ${prodId} FOR UPDATE`);
+    const result = await tx.execute(sql`SELECT stock FROM ${inventory} WHERE id = ${prodId} FOR UPDATE`) as unknown as ExecResult;
     const invItem = result.rows?.[0] ?? result[0];
-    if (!invItem) throw new HTTPException(400, { message: `Produit introuvable: ${prodId}` });
+    if (!invItem) throw new HTTPException(400, { message: `Product not found: ${prodId}` });
     if (delta < 0 && Number(invItem.stock) < Math.abs(delta)) {
-      throw new HTTPException(400, { message: 'Stock insuffisant' });
+      throw new HTTPException(400, { message: 'Insufficient stock' });
     }
     await tx.update(inventory).set({ stock: sql`stock + ${delta}` }).where(eq(inventory.id, prodId));
   }
+}
+
+function parseValidDate(val: string | Date | null | undefined): Date | null {
+  if (!val || val === '') return null;
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? null : d;
 }
 
 export const QuoteService = {
@@ -113,20 +119,6 @@ export const QuoteService = {
     return { ...quote, items };
   },
 
-  async lookupUnitPrices(items: { productId: string }[]): Promise<Map<string, number>> {
-    const productIds = items.map(i => i.productId);
-    if (productIds.length === 0) return new Map();
-    const products = await getDb()
-      .select({ id: inventory.id, price: inventory.price })
-      .from(inventory)
-      .where(inArray(inventory.id, productIds));
-    const priceMap = new Map<string, number>();
-    for (const p of products) {
-      priceMap.set(p.id, Number(p.price));
-    }
-    return priceMap;
-  },
-
   async create(data: CreateQuoteData) {
     return await getDb().transaction(async (tx) => {
       if (data.status === 'Accepted') {
@@ -140,10 +132,9 @@ export const QuoteService = {
           quoteNumber: data.quoteNumber,
           status: data.status,
           total: data.total.toString(),
-          validUntil: data.validUntil ? new Date(data.validUntil) : null,
+          validUntil: parseValidDate(data.validUntil),
           notes: data.notes ?? null,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } as any)
+        } as typeof quotes.$inferInsert)
         .returning();
 
       const itemsToInsert = data.items.map((item) => ({
@@ -174,7 +165,7 @@ export const QuoteService = {
       if (oldQuote.status === status) return oldQuote;
 
       if (!allowedTransitions[oldQuote.status]?.includes(status)) {
-        throw new HTTPException(400, { message: 'Transition de statut non autorisée' });
+        throw new HTTPException(400, { message: 'Status transition not allowed' });
       }
 
       const items = await tx
@@ -208,7 +199,7 @@ export const QuoteService = {
       if (!existing) return null;
 
       if (existing.status === 'Accepted' && data.items !== undefined) {
-        throw new HTTPException(400, { message: 'Impossible de modifier les articles d\'un devis accepté' });
+        throw new HTTPException(400, { message: 'Cannot modify items of an accepted quote' });
       }
 
       const existingItems = await tx
@@ -221,7 +212,7 @@ export const QuoteService = {
 
       if (data.status && data.status !== existing.status) {
         if (!allowedTransitions[existing.status]?.includes(data.status)) {
-          throw new HTTPException(400, { message: 'Transition de statut non autorisée' });
+          throw new HTTPException(400, { message: 'Status transition not allowed' });
         }
       }
 
@@ -243,7 +234,7 @@ export const QuoteService = {
       const updatePayload: Record<string, string | number | boolean | Date | null | undefined> = {};
       if (data.customerId !== undefined) updatePayload.customerId = data.customerId;
       if (data.status !== undefined) updatePayload.status = data.status;
-      if (data.validUntil !== undefined) updatePayload.validUntil = data.validUntil ? new Date(data.validUntil) : null;
+      if (data.validUntil !== undefined) updatePayload.validUntil = parseValidDate(data.validUntil);
       if (data.quoteNumber !== undefined) updatePayload.quoteNumber = data.quoteNumber;
       if (data.total !== undefined) updatePayload.total = data.total.toString();
       if (data.notes !== undefined) updatePayload.notes = data.notes ?? null;
@@ -318,10 +309,9 @@ export const QuoteService = {
         quoteNumber: newNumber,
         status: 'Draft',
         total: original.total,
-        validUntil: original.validUntil ? new Date(original.validUntil) : null,
+        validUntil: parseValidDate(original.validUntil),
         notes: original.notes ?? null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any).returning();
+      } as typeof quotes.$inferInsert).returning();
 
       const itemsToInsert = originalItems.map((item) => ({
         quoteId: newQuote.id,

@@ -65,7 +65,7 @@ export const CustomerService = {
       if (error instanceof HTTPException) throw error;
       const pgCode = (error as { code?: string }).code;
       if (pgCode) throw error; // let global handler map pg error codes
-      throw new HTTPException(500, { message: 'Erreur lors de la suppression du client' });
+      throw new HTTPException(500, { message: 'Error deleting customer' });
     }
   }
 };

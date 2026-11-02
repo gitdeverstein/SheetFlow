@@ -15,7 +15,6 @@ interface CrudService<T> {
 }
 
 export function createCrudRouter<T>(
-  pathPrefix: string,
   service: CrudService<T>,
   createSchema: ZodObject<ZodRawShape>,
   updateSchema?: ZodObject<ZodRawShape>,
