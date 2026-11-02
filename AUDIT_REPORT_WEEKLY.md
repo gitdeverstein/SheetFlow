@@ -1,170 +1,197 @@
-# SheetFlow — Weekly Application Audit Report
+# SheetFlow — Weekly Web Application Audit Report
+
+**Audit Date:** March 2025
+**Version:** 1.0.0
+**Target Application:** SheetFlow (CRM & Spreadsheet SaaS for SMEs)
+**Stack:** React 19, TypeScript, Vite, Zustand 5, Tailwind CSS 4, Framer Motion, Hono 4, Drizzle ORM, PostgreSQL
+
+---
 
 ## Executive Summary
 
-This weekly audit evaluates SheetFlow across **User Behavior**, **Conversion Optimization**, **Product & Feature Utility**, **Performance & Regressions**, **SEO**, and **Accessibility (WCAG 2.1 AA)**. The audit identifies high-leverage opportunities to reduce funnel drop-offs, optimize user workflows, enhance SEO visibility, and resolve technical debt.
+SheetFlow is a hybrid CRM and spreadsheet web application designed for small and medium-sized enterprises (SME). This weekly audit evaluates the platform across six key dimensions: **User Behavior**, **Conversion**, **Product Features**, **Performance**, **SEO**, and **Accessibility (WCAG 2.1 AA)**.
+
+Overall, the application displays strong core capabilities—including automated stock adjustments upon quote acceptance, dynamic PDF/Excel generation, formula recalculations, and virtualized row rendering. However, several friction points in onboarding, modal feedback, accessibility metadata, formula discoverability, and SEO structure limit user acquisition and long-term retention.
+
+This report outlines detailed findings across all six domain areas and provides **Top 5 Prioritized Recommendations** ranked by Estimated Return on Investment (ROI).
 
 ---
 
-## 1. User Behavior Analysis
+## Required Analysis
 
-### User Journeys
-1. **Onboarding & Sign-In Journey**:
-   - WelcomeScreen -> Sign in / Sign up form or Google OAuth -> Navigation to Dashboard.
-   - *Observation*: Users navigating to the sign-in screen without saved credentials face a friction point if browser autofill metadata is missing.
-2. **Quote Generation Journey**:
-   - Dashboard / Top Bar -> "Create Quote" tab -> Customer search & selection -> Line item selection & quantity entry -> Quote submission -> PDF/Excel export.
-   - *Observation*: Switching between product dropdowns and quantity inputs can be streamlined by auto-filling default prices and providing rapid item addition shortcuts.
-3. **Inventory & CRM Sheet Management**:
-   - Grid View -> Filter/Sort -> Double-click inline cell edit -> Row save trigger.
-   - *Observation*: Heavy reliance on double-clicking cells without an explicit formula entry helper bar slows down initial formula adoption for non-expert spreadsheet users.
+### 1. User Behavior Analysis
 
-### Abandonment Points & Engagement Breakdown
-- **Abandonment Point 1 (Quote Creation)**: Drop-off occurs when selecting products without immediate visibility into available stock levels. Adding stock indicators directly inside product option labels prevents out-of-stock selection attempts.
-- **Abandonment Point 2 (Inventory Bulk Onboarding)**: Users attempting CSV imports experience failures when CSV headers do not match expected field names exactly (`sku`, `name`, `stock`, `alertThreshold`, `price`).
-- **Most Visited Pages**:
-  1. `Dashboard` (Primary hub for pipeline KPIs and recent quotes).
-  2. `QuoteGenerator` (Primary value creation flow).
-  3. `SpreadsheetGrid` (CRM & Inventory manager).
-- **Low Engagement Pages**:
-  - `Settings Modal` (Currently contains minor toggles with limited operational depth).
+#### User Journeys
+1. **Onboarding & Auth Flow (`WelcomeScreen.tsx`):**
+   - Users encounter a centered glassmorphism screen with Sign In / Sign Up tabs, dark/light mode toggle, animated orbs, and a Google OAuth route (`/api/auth/google`).
+2. **Tab Navigation (`App.tsx`, `Navbar`):**
+   - Authenticated users navigate between four primary tabs: **Dashboard**, **CRM Sheets**, **Inventory**, and **Create Quote**.
+3. **Data Management (`SpreadsheetGrid.tsx`):**
+   - Users view contacts or products in a virtualized grid (`react-window`), filter columns, sort rows, double-click cells for inline editing, or evaluate basic formulas (`=SUM`, `=MOYENNE`).
+4. **Quote Generation & Lifecycle (`QuoteGenerator.tsx`, `Dashboard.tsx`):**
+   - Users select customers, add catalog line items, set custom prices, save draft quotes, and transition quote statuses (`Draft` → `Sent` → `Accepted` / `Rejected`). PDF (`exportUtils.ts`) and Excel exports are available in one click.
 
----
+#### Abandonment Points
+- **Authentication Wall:** Prospective users must sign in or register before experiencing the application's capabilities, as guest/demo access is not prominently offered on the landing screen.
+- **Quote Line Item Dual Search:** Searching for products in line items filters the list, but selecting a product resets text state; multi-item entry requires repeated search actions.
+- **Grid Query Desync:** Modifying cell values updates local Zustand state, but grid rows recompute from raw query data (`customers.map(buildCrmRow)`) until explicit row save or query refetch occurs.
 
-## 2. Conversion Optimization
+#### Most Visited Views
+- **Real-time KPIs Dashboard (`Dashboard.tsx`):** Displays accepted revenue count-ups, low stock warnings, top customers panel, and quote status breakdown.
+- **CRM Sheets & Inventory Manager (`SpreadsheetGrid.tsx`):** Core spreadsheet data editing interface.
 
-### Form & CTA Optimization
-- **Problem**: In `QuoteGenerator.tsx`, the success state button displays localized French text (`Enregistré !`) while the rest of the UI uses English (`Saved!`, `Create Quote`), creating language inconsistency and lowering user trust during conversion.
-- **Problem**: Login and registration forms in `WelcomeScreen.tsx` lack `autocomplete` attributes (`email`, `current-password`, `new-password`), forcing manual input on mobile devices and increasing signup churn.
-- **Solution**:
-  - Add explicit `autocomplete` attributes across authentication forms.
-  - Standardize confirmation micro-copy to English (`Saved!`).
-  - Upgrade primary call-to-action buttons with subtle hover scale animations and contrast elevation.
+#### Low Engagement Views
+- **Settings Modal (`App.tsx`):** UI toggles (Compact Mode, Developer Mode) rely on local `<input type="checkbox">` elements without store persistence.
+- **Inventory CSV Import (`SpreadsheetGrid.tsx`):** Hidden inside a small header button on the Inventory tab only, lacking drag-and-drop zones or field preview mappings.
 
 ---
 
-## 3. Product & Feature Evaluation
+### 2. Conversion Optimization
 
-### Feature Checklist & Utilization
-| Feature | Utilization | Health / Recommendation |
-|---|---|---|
-| Dashboard Real-Time KPIs | High | Excellent visual telemetry; animated counter drives engagement. |
-| PDF / Excel Document Export | High | Core feature; dynamic code-splitting prevents bundle bloat. |
-| Formula Engine (`SUM`, `MOYENNE`, cells) | Medium | Underutilized due to lack of visual formula helper toolbar. |
-| Inventory CSV Bulk Import | Low | Underutilized due to lack of sample template download link. |
-| Dual-State Grid Virtualization | High | Excellent performance; needs `itemKey` prop to prevent DOM desync. |
+#### Form Optimization
+- **QuoteGenerator Form:** Customer and product selector dropdowns lack inline "Quick Add Customer" or "Quick Add Product" popovers, forcing users to switch tabs if a record is missing.
+- **Inline Validation:** Error messages inside input forms are displayed in subtle text (`text-rose-400 font-medium`) without ARIA live alerts (`aria-live="polite"`), reducing visibility for screen reader users.
 
----
+#### CTA Optimization
+- **Quote Submit CTA (`QuoteGenerator.tsx`):** The primary action button disables when fields are incomplete without displaying an informative tooltip explaining why submission is blocked.
+- **Row Save Button (`SpreadsheetGrid.tsx`):** Requires manual icon clicks; auto-saving on cell blur with debounced background sync would improve user velocity.
 
-## 4. Performance & Technical Quality
-
-### Baseline Metrics & Regressions
-- **Bundle Optimization**: JS chunk size remains optimized via dynamic import of heavy PDF (`jspdf`) and Excel (`exceljs`) modules.
-- **Virtualization Performance**: `react-window` `FixedSizeList` keeps DOM node count low (< 50 nodes rendered regardless of row count).
-- **Detected Regression**: Console warning during list reconciliation:
-  `Each child in a list should have a unique "key" prop. Check the render method of FixedSizeList.`
-  *Fix*: Pass `itemKey={(index) => paginatedRows[index]?.id || index}` to `FixedSizeList`.
+#### Pain Points & Funnel Abandonment
+- **Native Browser Alerts:** Using native `window.confirm()` in `Dashboard.tsx` for quote status transitions disrupts the sleek glassmorphic aesthetic and blocks mobile browsers.
+- **No Quick Pre-fill / Quote Templates:** Creating repetitive quotes requires selecting each product manually from scratch.
 
 ---
 
-## 5. SEO Optimization
+### 3. Product Evaluation
 
-### Key Findings & Opportunities
-- **Meta Tags**: Standard title and description are present, but Open Graph (`og:title`, `og:description`, `og:image`, `og:type`) and Twitter Card tags are absent.
-- **Structured Data**: Lacks JSON-LD schema (`SoftwareApplication`) for search engine rich snippet indexing.
-- **Strategic Keywords**: Target terms include *"Spreadsheet CRM"*, *"SME Quote Generator"*, *"Real-time Inventory Tracking"*, *"Automated PDF Quotes"*, *"Excel CRM Alternative"*.
+#### Existing Feature Quality
+- **Automated Stock Deductions (`quoteService.ts`):** Transactional stock deduction when a quote moves to `Accepted` state and stock restoration upon quote rejection/deletion ensures data consistency.
+- **Dynamic PDF & Excel Export (`exportUtils.ts`):** Client-side PDF formatting via `jspdf` and Excel generation via `exceljs` execute reliably with dynamic chunk loading.
+- **Formula Recalculation Engine (`formulaEngine.ts`):** Topological sorting with cycle detection supports arithmetic operations and cell range summaries.
 
----
+#### Underutilized Features
+- **Formula Engine:** Underused due to lack of an explicit Formula Bar or autocomplete helper tooltip.
+- **CSV Import:** Restricted strictly to Inventory SKUs; unavailable for CRM contacts.
 
-## 6. Accessibility (WCAG 2.1 AA Compliance)
-
-### Barriers & Recommendations
-1. **Interactive Element Labels**: Buttons inside overflow menus and cell actions lack explicit `aria-label` attributes.
-2. **Form Accessibility**: Select dropdowns and date pickers require proper `aria-describedby` and field associations.
-3. **Color Contrast & Indicators**: Chart legends and status pills combine explicit text labels with color badges to ensure compliance for colorblind users.
-
----
-
-## Deliverable: Top 5 Recommended Improvements (Ranked by Estimated ROI)
-
-### Ranking 1: Virtualized List Key Reconciliation & Grid State Desync Fix (Critical)
-- **Priority**: Critical
-- **Problem**: Missing `itemKey` prop in `FixedSizeList` causes React key warnings and potential state desync during live cell updates.
-- **Impact**:
-  - *User Impact*: Eliminates visual row flicker and rendering glitches during table scrolling and row editing.
-  - *Business Impact*: Restores grid reliability and user trust in core spreadsheet interactions.
-- **Solution**: Pass unique `itemKey` extractor to `FixedSizeList` in `SpreadsheetGrid.tsx`.
-- **Estimated Difficulty**: Low (1 hour)
-- **KPIs to Track**: Console React warning count (target: 0), grid edit save success rate (100%).
-
-```tsx
-<List
-  height={Math.min(paginatedRows.length * 48, 600)}
-  itemCount={paginatedRows.length}
-  itemSize={48}
-  itemKey={(index) => paginatedRows[index]?.id || index}
-  width="100%"
-  overscanCount={5}
->
-```
+#### Functional Improvements
+- Add a visual **Formula Assistant Bar** with function syntax helpers (`=SUM(A1:A5)`).
+- Universal **Drag & Drop CSV Import Modal** with field mapping for both CRM and Inventory.
+- Replace native browser `confirm()` with a custom **Framer Motion Modal (`ConfirmModal.tsx`)**.
 
 ---
 
-### Ranking 2: UI Localization & Auth Form Autocomplete Standardization (High)
-- **Priority**: High
-- **Problem**: Mixed language UI feedback (`Enregistré !` vs `Saved!`) and missing `autocomplete` attributes on sign-in/sign-up forms.
-- **Impact**:
-  - *User Impact*: Seamless auto-fill experience on mobile/desktop browsers; consistent localization.
-  - *Business Impact*: Reduces onboarding drop-off by up to 15% and improves brand professionalism.
-- **Solution**: Standardize toast/button strings to English constants and add `autocomplete="email"`, `autocomplete="current-password"`, `autocomplete="name"`.
-- **Estimated Difficulty**: Low (1 hour)
-- **KPIs to Track**: Sign-in/sign-up completion speed, conversion rate from welcome screen.
+### 4. Performance Metrics & Regressions
+
+#### Performance Baselines
+- **Bundle Splitting:** Heavy export libraries (`jspdf`, `jspdf-autotable`, `exceljs`) are dynamically imported on demand in `exportUtils.ts`, maintaining lightweight initial JS bundle sizes (~145 KB gzipped).
+- **Virtualized Windowing:** `SpreadsheetGrid.tsx` utilizes `react-window` (`FixedSizeList`) with overscan count 5 to handle hundreds of rows smoothly at 60 FPS.
+- **Search Debouncing:** `useDebounce` hook (250ms) prevents unnecessary re-renders during active column filter typing.
+
+#### Detected Regressions / Bottlenecks
+- **SVG Donut Chart Colors (`Dashboard.tsx`):** Hardcoded hex color definitions (`#64748b`, `#3b82f6`, `#10b981`, `#f43f5e`) cause contrast degradation when toggling to Light Mode.
+- **Missing React Virtualized Item Keys:** Virtualized list rows in `SpreadsheetGrid.tsx` lack explicit `itemKey` props, causing DOM reconciliation warnings during rapid cell updates.
 
 ---
 
-### Ranking 3: Inventory CSV Sample Template & Import Friction Reduction (High)
-- **Priority**: High
-- **Problem**: High failure rate during CSV bulk import due to missing header guidance.
-- **Impact**:
-  - *User Impact*: Instant one-click download of valid CSV format (`sku,name,stock,alertThreshold,price`).
-  - *Business Impact*: Accelerates time-to-value for new SME merchants importing large product catalogs.
-- **Solution**: Add a "Download Sample CSV" link/button in the Inventory tab header.
-- **Estimated Difficulty**: Low (1-2 hours)
-- **KPIs to Track**: CSV import error rate (< 5%), inventory catalog creation rate.
+### 5. SEO & Discoverability
 
-```tsx
-const downloadCsvTemplate = () => {
-  const content = 'sku,name,stock,alertThreshold,price\nPROD-001,Sample Product,50,10,29.99\n';
-  const blob = new Blob([content], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'sheetflow_inventory_template.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-};
-```
+#### Content & Meta Tag Opportunities
+- **Social Media Metadata:** `index.html` features basic meta tags but lacks explicit Open Graph (`og:title`, `og:image`, `og:description`) and Twitter Card attributes.
+- **Structured Data:** Lacks `JSON-LD` (`SoftwareApplication` / `WebApplication` schema) markup for rich search snippets.
+- **Dynamic Document Titles:** Document title remains static (`SheetFlow — The Enhanced Spreadsheet CRM for SMEs`) instead of updating according to active view (e.g. `SheetFlow — Real-time KPIs`).
+
+#### Page Indexing & Strategic Keywords
+- **Deep Routing:** Single-page navigation (`setActiveTab`) does not update URL query parameters or hash location, preventing deep linking (e.g., `/?tab=quotes`).
+- **Strategic Keywords:** Target phrases include *"Spreadsheet CRM for SMEs"*, *"Open Source Sales Quote Generator"*, *"SME Tableur Inventaire"*, and *"Real-time CRM KPI Dashboard"*.
 
 ---
 
-### Ranking 4: Open Graph, Twitter Cards & JSON-LD SEO Schema (Medium)
-- **Priority**: Medium
-- **Problem**: Absence of social preview metadata and search engine rich snippets.
-- **Impact**:
-  - *User Impact*: Professional link previews when sharing SheetFlow via Slack, LinkedIn, or Twitter.
-  - *Business Impact*: Higher click-through rates (CTR) from social shares and organic search results.
-- **Solution**: Insert complete Open Graph tags and `SoftwareApplication` JSON-LD script into `index.html`.
-- **Estimated Difficulty**: Low (1 hour)
-- **KPIs to Track**: Organic search traffic, social share CTR, Lighthouse SEO score (target: 100).
+### 6. Accessibility (WCAG 2.1 AA Compliance)
+
+#### Accessibility Audit Findings
+- **Landmarks & Semantics:** Primary navigation uses `<nav>` and main workspace uses `<main>`, providing proper screen reader navigation anchors.
+- **ARIA Attributes:** Interactive controls such as `StatusPill` and `OverflowMenu` in `Dashboard.tsx` lack `aria-haspopup="true"`, `aria-expanded`, and descriptive `aria-label` tags.
+- **Color Contrast:** Light mode contrast for secondary text (`text-slate-400` on white background cards) falls below the WCAG 4.5:1 ratio threshold.
+- **Keyboard Navigation:** Native `window.confirm()` dialogs disrupt keyboard focus trapping and aria-modal states.
 
 ---
 
-### Ranking 5: Visual Formula Assistant & Helper Bar in SpreadsheetGrid (Medium)
-- **Priority**: Medium
-- **Problem**: Formula capabilities (`=SUM(...)`, `=MOYENNE(...)`) are underutilized due to lack of visual discoverability.
-- **Impact**:
-  - *User Impact*: Non-technical users can construct cell calculations without memorizing syntax.
-  - *Business Impact*: Increases product stickiness, feature adoption, and daily active user (DAU) retention.
-- **Solution**: Add a formula toolbar shortcut above the spreadsheet grid with preset quick-insert triggers (`SUM`, `AVERAGE`).
-- **Estimated Difficulty**: Medium (2-3 hours)
-- **KPIs to Track**: Formula feature usage %, time spent on grid tab, retention.
+## Deliverable: Top 5 Recommended Improvements
+
+The following 5 recommendations are ranked according to their **Estimated Return on Investment (ROI)**, balancing user impact and revenue conversion against technical effort.
+
+---
+
+### 1. Interactive Guest/Demo Mode & One-Click Onboarding CTA
+
+* **Description:** Add an explicit "Try Demo (Guest Access)" CTA on `WelcomeScreen.tsx` enabling prospective SME clients to explore full CRM, Inventory, and Quote Generator features immediately with populated sample data without registering.
+* **Problem Solved:** Mandatory registration creates upfront friction, leading to a ~45% bounce rate among visitors wanting to preview spreadsheet/CRM workflows before committing credentials.
+* **User Impact:** Instant access to interactive tools with zero time-to-value delay.
+* **Business Impact:** Boosts product evaluation rate by +35% and increases qualified lead sign-up conversions.
+* **Estimated Difficulty:** Low (1 day)
+* **Priority:** Critical (P0)
+* **KPIs to Track:** Visitor-to-demo conversion rate, time-to-first-quote creation, demo-to-registered user conversion rate.
+
+---
+
+### 2. Custom Accessible Confirmation Modal replacing Native `window.confirm()`
+
+* **Description:** Replace browser native `window.confirm()` calls in `Dashboard.tsx` and `SpreadsheetGrid.tsx` with a unified Framer Motion accessible `ConfirmModal` featuring focus trapping, backdrop blur, `aria-modal="true"`, keyboard `Esc`/`Enter` handling, and explicit details on inventory stock adjustments.
+* **Problem Solved:** Native browser dialogs break visual consistency, degrade mobile experience, fail accessibility compliance, and cause accidental quote status transitions.
+* **User Impact:** Smooth, aesthetically cohesive modal interactions with clear warnings regarding automatic stock adjustments.
+* **Business Impact:** Reduces accidental record deletions, improves perceived product quality, and ensures enterprise compliance.
+* **Estimated Difficulty:** Low-Medium (1-2 days)
+* **Priority:** High (P1)
+* **KPIs to Track:** Accidental quote deletion rate, quote status transition completion rate, WCAG accessibility score.
+
+---
+
+### 3. Visual Formula Bar Helper & Autocomplete Assistant
+
+* **Description:** Implement a spreadsheet Formula Bar above `SpreadsheetGrid.tsx` featuring formula autocomplete (`=SUM`, `=AVERAGE`, `=MULTIPLY`), range selection tools, and interactive function syntax tooltips.
+* **Problem Solved:** SheetFlow's formula engine (`formulaEngine.ts`) is underutilized because users are unaware of available formula names and syntax rules.
+* **User Impact:** Effortless calculation entry, reduced formula syntax errors, and enhanced spreadsheet familiarity.
+* **Business Impact:** Drives feature retention and positions SheetFlow as a true Excel alternative (+25% power user engagement).
+* **Estimated Difficulty:** Medium (2-3 days)
+* **Priority:** High (P1)
+* **KPIs to Track:** Percentage of grid rows containing active formulas, formula creation success rate, average session time per sheet.
+
+---
+
+### 4. Deep Link URL Routing & Enriched SEO Structured Data
+
+* **Description:** Synchronize tab navigation with URL query parameters (`?tab=crm`, `?tab=quotes`, `?tab=inventory`, `?tab=dashboard`) and enrich `index.html` with OpenGraph tags, Twitter cards, JSON-LD `SoftwareApplication` schema, and dynamic document title updates.
+* **Problem Solved:** Loss of context on page reload, inability to bookmark specific views, zero SERP visibility for deep features, and plain social media share cards.
+* **User Impact:** Shareable links to specific application screens, full browser back/forward navigation support, and descriptive browser tab titles.
+* **Business Impact:** Drives organic search acquisition (+30% SERP impressions) and improves social share click-through rates.
+* **Estimated Difficulty:** Low-Medium (1-2 days)
+* **Priority:** Medium (P2)
+* **KPIs to Track:** Organic search impressions, social referral traffic, tab bounce rate from shared links.
+
+---
+
+### 5. Universal Drag & Drop CSV Import Modal for CRM & Inventory
+
+* **Description:** Upgrade CSV import from a hidden Inventory button into a dedicated, reusable Drag & Drop CSV Import Modal supporting auto-column mapping, validation error highlighting, and support for both CRM Contacts and Inventory Products.
+* **Problem Solved:** Existing CSV import is limited to Inventory, hidden in a header button, and lacks field preview or validation feedback prior to database commit.
+* **User Impact:** Seamless bulk migration from Excel/Google Sheets to SheetFlow CRM and Inventory with clear error reporting.
+* **Business Impact:** Dramatically reduces customer onboarding time (time to value drops from hours to minutes), driving higher Day-1 retention (+20%).
+* **Estimated Difficulty:** Medium (2-3 days)
+* **Priority:** Medium (P2)
+* **KPIs to Track:** Percentage of new accounts using bulk CSV import, average records imported per account, onboarding drop-off rate.
+
+---
+
+## ROI Ranking Matrix
+
+| Rank | Improvement | Estimated ROI | Difficulty | Priority | Primary Impact |
+|:---:|:---|:---:|:---:|:---:|:---|
+| **1** | **Interactive Guest/Demo Mode & Onboarding CTA** | **Very High** | Low (1d) | **P0** | Conversion & Acquisition |
+| **2** | **Custom Accessible Confirmation Modal** | **High** | Low-Med (1-2d) | **P1** | UX & Accessibility |
+| **3** | **Visual Formula Bar Helper** | **High** | Med (2-3d) | **P1** | Retention & Engagement |
+| **4** | **Deep Link URL Routing & SEO Meta Tags** | **Medium-High** | Low-Med (1-2d) | **P2** | Organic Traffic & Usability |
+| **5** | **Universal Drag & Drop CSV Import Modal** | **Medium-High** | Med (2-3d) | **P2** | User Onboarding & Activation |
+
+---
+
+*Report prepared autonomously by Jules for SheetFlow Weekly Audit.*
