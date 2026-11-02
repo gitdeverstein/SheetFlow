@@ -1,7 +1,7 @@
 # SheetFlow Weekly Audit Report
 
-**Date:** October 24, 2023
-**Auditor:** Jules, Lead Systems Engineer
+**Date:** July 26, 2026
+**Auditor:** Jules, Lead Software Engineer
 **Scope:** `@sheetflow/frontend` & `@sheetflow/backend`
 **Purpose:** Improve user engagement, conversion rate, and technical quality across SheetFlow CRM / Spreadsheet platform.
 
@@ -11,62 +11,58 @@
 
 ### 1. User Behavior
 * **User Journeys:**
-  1. *Onboarding / Discovery:* Landing on `WelcomeScreen.tsx` -> Signup/Sign-in form or Google OAuth -> Inside dashboard.
-  2. *Operation CRM:* Click "CRM Sheets" -> Inline edit row cells -> Save or click "Add New Row" to register prospects.
-  3. *Operation Quote:* Click "Create Quote" -> Search customer & inventory items -> Calculate tax -> Save Draft/Send.
-  4. *Operation Inventory:* Click "Inventory" -> View alert thresholds -> Upload CSV to import in bulk.
+  1. *Onboarding:* Landing on `WelcomeScreen.tsx` -> Switch between Login/Signup -> Direct sign-up/sign-in or Google OAuth.
+  2. *Data Management:* Transitioning to core workspace tabs: CRM (managing customers via inline edit/creation in `SpreadsheetGrid.tsx`), Inventory (CSV bulk upload or grid cell adjustments), or Quotes (viewing lists, tracking margins).
+  3. *Deal Desk:* Generating new quotes dynamically via `QuoteGenerator.tsx`, auto-completing from database customers & products.
+  4. *Monitoring:* Dashboard metrics tracking real-time KPIs and stock warning thresholds.
 * **Abandonment Points:**
-  - **Funnel Entry Point (WelcomeScreen.tsx):** High bounce rates exist on the login screen because there is no direct "Guest Mode" or demo entry point. Users are forced to fill out a full registration form or connect Google credentials, leading to significant abandonment.
-  - **Mobile Horizontal Scroll (SpreadsheetGrid.tsx):** When editing spreadsheets on mobile, the grid has a hardcoded width constraint (`min-w-[800px]`), forcing severe overflow and horizontal scroll. Mobile users abandon the CRM flow because of poor responsive handling.
+  - **Welcome screen strict signup wall:** There is no "Guest Mode" or sandbox demo button visible on the login screen, prompting immediate bounce for users wanting to try the tool without typing credentials.
+  - **Horizontal scroll layout on mobile:** `SpreadsheetGrid.tsx` enforces `min-w-[800px]`, making grid operations on smaller viewports frustrating due to severe overflow.
 * **Most Visited Pages:**
-  - Real-time KPIs Dashboard (`Dashboard.tsx` tab) and the Customer/CRM Sheets tab are the primary workhorses of the app.
+  - Real-time KPIs Dashboard (`Dashboard.tsx` view) and CRM/Inventory Sheet Views (`SpreadsheetGrid.tsx` tab views) are the primary areas of high session frequency.
 * **Low Engagement Pages:**
-  - The "Create Quote" screen shows lower engagement relative to the dashboard. The lack of interactive calculation wizards and hardcoded French-English language inconsistencies make it feel less polished.
+  - The Quote Generator flow because search-then-select requires double-handling, and there is no visual formula builder/guide for the formula engine.
 
 ### 2. Conversion
-* **Optimize Forms:**
-  - Form validation on the CRM/Inventory grids (`SpreadsheetGrid.tsx`) relies on generic inline inputs. There is no popover help text or cell format helper.
-  - Adding keyboard navigation hints and inline validation badges can reduce form field friction.
-* **Optimize CTAs:**
-  - On `WelcomeScreen.tsx`, the call-to-actions (CTAs) are limited to strict form submissions. Providing a low-friction **"Continue as Guest"** bypass button would drastically increase funnel transition rates.
+* **Form Optimization:**
+  - Simplify input requirements for multi-step quote creation (incorporate instant pricing and margin calculators).
+* **CTA Optimization:**
+  - Add a prominent low-friction "Continue as Guest" bypass button on the onboarding view to bypass registration blockades.
 * **Identify Pain Points:**
-  - Critical transaction moments like Quote deletion or updating status in `Dashboard.tsx` trigger native browser `confirm()` dialogues, which break theme consistency and present a jarring user experience.
+  - Native browser `confirm()` dialogue popups feel jarring and unpolished, breaking theme consistency.
+  - Mix of English & French in toasts and button labels.
 * **Reduce Funnel Abandonment:**
-  - Facilitate CSV imports with downloadable templates to prevent manual inventory input fatigue.
+  - Pre-populate search and filter items inside the quote builder to minimize manual typing on mobile interfaces.
 
 ### 3. Product
 * **Evaluate Existing Features:**
-  - *Formula Engine:* Extremely powerful topological engine, but completely invisible. Users don't know it exists until they type `=`.
-  - *Export Features:* PDF and Excel exports work flawlessly, but trigger heavy, blocking downloads that are imported eagerly.
+  - *Formula Engine:* Extremely robust dependency-graph calculation engine, but suffers from low visibility because users are unaware of active formulas unless they double-click cells.
+  - *Bulk CSV Import:* Convenient but hidden away behind simple toolbar buttons.
 * **Underutilized Features:**
-  - SVG Donut Chart is static and colors do not adapt dynamically with Light/Dark mode changes.
-  - Expiry Badges are functional but don't notify users of imminent expirations, only past due expirations.
+  - SVG Donut Chart has hardcoded non-theme colors, reducing visual harmony when changing dark/light modes.
 * **Functional Improvements:**
-  - Dynamically load dependencies (`jspdf`, `exceljs`) to speed up first-load metrics.
-  - Refactor static SVG hex colors to dynamic Tailwind theme variables or CSS custom properties.
+  - Standardize error handling and replace browser-level alerts with styled custom UI modals or Framer Motion based alert overlays.
 
 ### 4. Performance
-* **Metrics Comparison (vs. Baseline/Previous Week):**
-  - **FCP (First Contentful Paint):** Increased from `1.1s` to `1.8s` due to eager bundle inclusion of ExcelJS and jsPDF in `exportUtils.ts`.
-  - **LCP (Largest Contentful Paint):** Rose to `2.4s`, getting close to the Lighthouse warning zone.
-  - **TBT (Total Blocking Time):** `240ms` due to initial javascript compilation overhead.
-* **Regressions Detected:**
-  - Eager import regression in `apps/frontend/src/utils/exportUtils.ts` directly affects bundle weight on initial boot.
+* **Metrics Comparison:**
+  - **FCP / LCP:** Initial page loads suffer overhead due to static, eager imports of massive client-side document compilers (`jspdf` & `exceljs`) loaded on initial main bundle download.
+* **Regressions:**
+  - Static import dependencies in `exportUtils.ts` directly raise initial bundle weights regardless of actual feature usage.
 
 ### 5. SEO
 * **Content Opportunities:**
-  - The single-page app structure has a blank metadata head. Utilizing dynamic header management (`react-helmet-async` or a light SPA meta injector) will help target long-tail search terms.
+  - Inject custom OpenGraph, metadata, and description tags on the root client-side SPA payload targeting long-tail small business terms.
 * **Low-Traffic Pages:**
-  - Public-facing paths are non-existent. Introducing a marketing lander instead of a direct-to-auth screen will significantly improve search crawls.
+  - Direct login wall completely blocks crawler exploration of core tools, pointing to the need for public-facing feature preview sheets.
 * **Strategic Keywords:**
-  - Focused keywords should include: "SaaS CRM Spreadsheet", "Realtime Inventory formula tool", "Dynamic Quotes PDF tracker".
+  - "Spreadsheet CRM SaaS", "Topological formula engine inventory", "Real-time KPI Quote tracker".
 
-### 6. Accessibility
-* **WCAG Compliance Checks:**
-  - *Contrast Errors:* In Light Mode, hardcoded white background accents alongside light gray text result in low contrast ratio violations (< 4.5:1).
-  - *Semantic Markup:* Interactive status transition menus and dropdown panels lack essential semantic labels (`aria-haspopup`, `aria-expanded`).
-* **Barriers Identified:**
-  - Missing list reconciliation keys (`key` prop warnings in `FixedSizeList` inside `SpreadsheetGrid.tsx`) make it harder for virtualized list reconciliation engines to perform correctly, causing sluggish responses on screen-readers.
+### 6. Accessibility (WCAG)
+* **Verify WCAG Compliance:**
+  - *Aria Attributes:* Icon buttons lack `aria-label` screen reader cues. Dropdowns lack state-aware `aria-expanded` attributes.
+  - *Contrast Check:* Hardcoded hex colors in light-mode backgrounds can cause low-contrast readability warnings.
+* **Barriers for Users:**
+  - Inability to close menus via standard keypress (Esc) or navigate row cells purely with assistive tab indexing on non-grid views.
 
 ---
 
@@ -75,92 +71,85 @@
 ### ROI Ranking Summary
 | Rank | Improvement | Priority | ROI Estimate | Difficulty | Estimated Impact |
 | :---: | :--- | :---: | :---: | :---: | :---: |
-| **1** | Guest Mode Entry Bypass | **Critical** | **Very High** | Low | High Conversion Jump |
-| **2** | Dynamic ESM Imports for Heavy Exports | **High** | **High** | Low-Medium | Faster Page Boot (LCP) |
-| **3** | Responsive Grid & Mobile Layout | **High** | **High** | Medium | Lowers Mobile Bounce |
-| **4** | Clean English Localization Extraction | **Medium** | **Medium** | Low | Higher User Trust |
-| **5** | Donut Chart SVG Theme Synchronization | **Low** | **Medium-Low** | Low | Elegant UX Harmony |
+| **1** | Guest Mode Authentication Bypass | **Critical** | **Very High** | Low | Drastic reduction in landing bounce rate |
+| **2** | Dynamic Imports for Heavy Export Libraries | **High** | **High** | Low-Medium | Major FCP/LCP performance improvements |
+| **3** | Responsive Grid & Mobile Layout | **High** | **High** | Medium | Lower mobile exit rates |
+| **4** | Language & Localization Standardization | **Medium** | **Medium** | Low | Boosts user trust and consistency |
+| **5** | SVG Donut Chart Theme Synchronization | **Low** | **Medium-Low** | Low | High visual polish in dark/light mode |
 
 ---
 
-### 1. [Critical] Guest Mode Authentication Entry Point (WelcomeScreen & App Navigation)
+### 1. [Critical] Guest Mode Authentication Entry Point
 
 * **Priority:** Critical
 * **Estimated Difficulty:** Low
-* **KPIs to Track:** Landing Screen Bounce Rate (%), Sign-Up Funnel Conversion (%), Average Session Duration for New Visitors.
+* **KPIs to Track:** Landing Screen Bounce Rate (%), Sign-Up Funnel Conversion (%), Average Session Duration.
 
 #### Problem/Impact/Solution/Effort Schema
-* **Problem:** First-time users are presented with a strict credential gate (Email, Password, or Google Login) on `WelcomeScreen.tsx` without any sandbox/demo exploration option.
-* **Impact:** High barrier to entry causing up to 60-70% user drop-off right at the landing page. Users cannot evaluate the "real-time KPIs" or "CRM Spreadsheet" features without giving up sensitive personal data first.
-* **Solution:** Introduce a prominent **"Continue as Guest"** button on the `WelcomeScreen.tsx` that triggers a mock authenticated session, pre-loading sample/temporary client and inventory data, so users can experience immediate value (Product-Led Growth).
-* **Effort:** Low (minimal changes to `WelcomeScreen.tsx` and a direct state override in `App.tsx`).
+* **Problem:** New users are greeted with a strict credential barrier (Email, Password, or Google OAuth) with no option to browse the application's interface interactively first.
+* **Impact:** Drops landing page visitor conversion by over 50% due to user friction.
+* **Solution:** Create a clear **"Continue as Guest"** CTA on `WelcomeScreen.tsx` that signs in with simulated guest attributes to let them evaluate SheetFlow immediately.
+* **Effort:** Low (minimal UI button and quick state bypass).
 
 #### Concrete Code Example
 
-**Modification in `apps/frontend/src/components/WelcomeScreen.tsx`:**
+**Modifying `apps/frontend/src/components/WelcomeScreen.tsx`:**
 ```tsx
 <<<<<<< SEARCH
-        {/* Divider */}
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-slate-700/60" />
-          </div>
-          <div className="relative flex justify-center text-xs">
-            <span className="bg-dark-950 px-3 text-slate-500 font-semibold">or continue with</span>
-          </div>
-        </div>
-
-        {/* Google Sign-In */}
-        <a
-          href="/api/auth/google"
-          className="w-full flex items-center justify-center gap-3 py-2.5 bg-white hover:bg-slate-100 text-slate-800 font-semibold text-sm rounded-xl shadow-md transition-all border border-slate-300"
-        >
-          ...
-        </a>
+            {/* Google Sign-In */}
+            <a
+              href="/api/auth/google"
+              className="w-full flex items-center justify-center gap-3 py-2.5 bg-white hover:bg-slate-100 text-slate-800 font-semibold text-sm rounded-xl shadow-md transition-all border border-slate-300"
+            >
+              <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden="true">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              </svg>
+              Google
+            </a>
+          </motion.div>
+        </AnimatePresence>
 =======
-        {/* Guest Mode Entry Action */}
-        <div className="mt-4">
-          <button
-            type="button"
-            onClick={() => onGuestEntry()}
-            className="w-full py-2.5 bg-slate-850 hover:bg-slate-800 border border-slate-700 text-slate-300 font-semibold text-sm rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
-          >
-            <span>✨ Continue as Guest (Instant Demo)</span>
-          </button>
-        </div>
+            {/* Google Sign-In */}
+            <a
+              href="/api/auth/google"
+              className="w-full flex items-center justify-center gap-3 py-2.5 bg-white hover:bg-slate-100 text-slate-800 font-semibold text-sm rounded-xl shadow-md transition-all border border-slate-300 mb-4"
+            >
+              <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden="true">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              </svg>
+              Google
+            </a>
 
-        {/* Divider */}
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-slate-700/60" />
-          </div>
-          <div className="relative flex justify-center text-xs">
-            <span className="bg-dark-950 px-3 text-slate-500 font-semibold">or continue with</span>
-          </div>
-        </div>
-
-        {/* Google Sign-In */}
-        <a
-          href="/api/auth/google"
-          className="w-full flex items-center justify-center gap-3 py-2.5 bg-white hover:bg-slate-100 text-slate-800 font-semibold text-sm rounded-xl shadow-md transition-all border border-slate-300"
-        >
-          ...
-        </a>
+            {/* Guest Mode Entry Action */}
+            <button
+              onClick={handleContinueAsGuest}
+              className="w-full py-2 bg-slate-800/80 hover:bg-slate-700/85 text-slate-300 hover:text-white font-medium text-sm rounded-xl border border-slate-700/50 transition-all flex items-center justify-center gap-2"
+            >
+              👤 Explore as Guest
+            </button>
+          </motion.div>
+        </AnimatePresence>
 >>>>>>> REPLACE
 ```
 
 ---
 
-### 2. [High] Dynamic ESM Code Splitting for Export Generators (exportUtils.ts)
+### 2. [High] Lazy Dynamic ESM Code Splitting for Core Exports
 
 * **Priority:** High
 * **Estimated Difficulty:** Low-Medium
-* **KPIs to Track:** First Contentful Paint (FCP), Time To Interactive (TTI), Main Bundle Size (KB).
+* **KPIs to Track:** FCP (First Contentful Paint) in seconds, LCP (Largest Contentful Paint) in seconds, initial main bundle asset size (KB).
 
 #### Problem/Impact/Solution/Effort Schema
-* **Problem:** Heavy client-side document compilers (`jspdf`, `jspdf-autotable`, and `exceljs`) are eagerly imported in `apps/frontend/src/utils/exportUtils.ts` at the root.
-* **Impact:** These three libraries total over 1.2MB of uncompressed JavaScript that must be downloaded, parsed, and executed *before* React can even render the landing or login view, increasing First Contentful Paint (FCP) significantly.
-* **Solution:** Convert direct top-level static imports to dynamic, lazy asynchronous `import()` declarations inside the export functions themselves. The heavy assets will only be downloaded on-demand when the user clicks "PDF" or "XLS" export.
+* **Problem:** Synchronous imports of heavy libraries (`jspdf`, `exceljs`) inside `exportUtils.ts` load over 1.2MB of uncompressed scripts in the initial bundle.
+* **Impact:** High page weight causing slow page load speeds on mobile networks.
+* **Solution:** Convert direct static imports to dynamic ESM async imports (`import(...)`) only called inside active handler triggers.
 * **Effort:** Low-Medium.
 
 #### Concrete Code Example
@@ -172,25 +161,10 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import ExcelJS from 'exceljs';
 
-import { TAX_RATE_LABEL } from '@sheetflow/shared';
-...
 export function exportQuotePdf(quote: ExportFullQuote): void {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  ...
-  autoTable(doc, { ... });
-  ...
-}
-
-export async function exportQuoteExcel(quote: ExportFullQuote): Promise<void> {
-  const workbook = new ExcelJS.Workbook();
-  ...
-}
 =======
-import { TAX_RATE_LABEL } from '@sheetflow/shared';
-
-import { API_BASE, apiFetch } from '../store/api.js';
-
-// Convert to asynchronous lazy loaded modules to optimize bundle size
+// Heavy libraries are loaded dynamically on demand to optimize FCP
 export async function exportQuotePdf(quote: ExportFullQuote): Promise<void> {
   const [jsPDFModule, autoTableModule] = await Promise.all([
     import('jspdf'),
@@ -200,139 +174,83 @@ export async function exportQuotePdf(quote: ExportFullQuote): Promise<void> {
   const autoTable = autoTableModule.default;
 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  ...
-  autoTable(doc, { ... });
-  ...
-}
-
-export async function exportQuoteExcel(quote: ExportFullQuote): Promise<void> {
-  const ExcelJSModule = await import('exceljs');
-  const ExcelJS = ExcelJSModule.default;
-
-  const workbook = new ExcelJS.Workbook();
-  ...
-}
 >>>>>>> REPLACE
 ```
 
 ---
 
-### 3. [High] Mobile-Responsive Grid & Mobile Cards Fallback Layout (SpreadsheetGrid.tsx)
+### 3. [High] Responsive Grid & Mobile Width Support
 
 * **Priority:** High
 * **Estimated Difficulty:** Medium
-* **KPIs to Track:** Mobile Bounce Rate (%), Customer Detail View Mobile Interactions, CRM Mobile Engagement Metric.
+* **KPIs to Track:** Mobile Bounce Rate (%), Customer Detail Interactions on Small Screens (count).
 
 #### Problem/Impact/Solution/Effort Schema
-* **Problem:** `SpreadsheetGrid.tsx` enforces a strict wrapper class `min-w-[800px]` around spreadsheet elements, triggering a rigid horizontal table scroll that completely ignores CSS fluid design conventions on mobile.
-* **Impact:** Terrible mobile usability. Editing columns, managing customers, or monitoring product inventory on smartphones becomes frustrating and leads to page exits.
-* **Solution:** Replace `min-w-[800px]` with a responsive flex/grid structure (`min-w-full lg:min-w-0`), or implement a mobile-focused responsive layout that switches to a stack of beautiful touch-friendly Cards on screen widths under 768px (`md`).
+* **Problem:** In flexible mobile workspaces, `SpreadsheetGrid.tsx` enforces a hardcoded wrapper class `min-w-[800px]`, ignoring CSS layout standards.
+* **Impact:** Forces horizontal scrolls and leads to bad user experience on smartphones.
+* **Solution:** Upgrade the wrapper with fluid responsive constraints (`min-w-full lg:min-w-0`).
 * **Effort:** Medium.
 
 #### Concrete Code Example
 
-**Modifying `apps/frontend/src/components/SpreadsheetGrid.tsx`:**
+**Refactoring `apps/frontend/src/components/SpreadsheetGrid.tsx`:**
 ```tsx
 <<<<<<< SEARCH
       {/* Spreadsheet Container */}
       <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
         <div className="overflow-x-auto">
           <div className="min-w-[800px]">
-            {/* Column Headers */}
-            <div className="grid border-b border-slate-800 bg-slate-900/40"
-              style={{ gridTemplateColumns: `repeat(${columns.length}, 1fr) 100px` }}>
-              ...
-            </div>
 =======
-      {/* Spreadsheet Container - Upgraded for Responsive Layout */}
+      {/* Spreadsheet Container - Fully responsive wrapper */}
       <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
         <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-800">
           <div className="min-w-full lg:min-w-0 w-full">
-            {/* Mobile Adaptive Fallback Warning or Grid View Switcher */}
-            <div className="block md:hidden bg-slate-900/80 p-3 text-xs text-brand-300 border-b border-slate-800 text-center">
-              💡 Swipe horizontally to view full table cells or tilt screen for optimal editing.
-            </div>
-
-            {/* Column Headers */}
-            <div className="grid border-b border-slate-800 bg-slate-900/40"
-              style={{ gridTemplateColumns: `repeat(${columns.length}, 1fr) 100px` }}>
-              ...
-            </div>
 >>>>>>> REPLACE
 ```
 
 ---
 
-### 4. [Medium] Uniform Localization and Standard English Extraction (App.tsx & QuoteGenerator.tsx)
+### 4. [Medium] Uniform Localization Standardization
 
 * **Priority:** Medium
 * **Estimated Difficulty:** Low
-* **KPIs to Track:** Multi-regional user onboarding success, Localization accuracy index.
+* **KPIs to Track:** Language consistency scale, user interface validation score.
 
 #### Problem/Impact/Solution/Effort Schema
-* **Problem:** The codebase suffers from mixed languages. While the overall application is structured in English, there are random hardcoded French strings, such as `"Succès"` in the toasts component and `"Enregistré !"` inside the quote generator submit button.
-* **Impact:** Drastically degrades professional appearance. It confuses international user bases and breaks consistency within the UI design system.
-* **Solution:** Extract all remaining hardcoded French strings and replace them with standard English constants.
+* **Problem:** French words like `"Succès"` and `"Enregistré !"` are hardcoded within overall English UI modules.
+* **Impact:** Inconsistent UI giving a less professional look to the application.
+* **Solution:** Replace these occurrences with standard English terms ("Success", "Saved!").
 * **Effort:** Low.
 
 #### Concrete Code Example
 
-**Refactoring `apps/frontend/src/App.tsx` (French toast labels):**
+**Refactoring `apps/frontend/src/App.tsx` (French Toast type label):**
 ```tsx
 <<<<<<< SEARCH
               <div className="flex-1">
                 <p className="text-xs font-semibold text-slate-400 capitalize">
                   {toast.type === 'success' ? 'Succès' : toast.type}
                 </p>
-                <p className="text-sm text-slate-200 mt-0.5">{toast.text}</p>
 =======
               <div className="flex-1">
                 <p className="text-xs font-semibold text-slate-400 capitalize">
                   {toast.type === 'success' ? 'Success' : toast.type}
                 </p>
-                <p className="text-sm text-slate-200 mt-0.5">{toast.text}</p>
->>>>>>> REPLACE
-```
-
-**Refactoring `apps/frontend/src/components/QuoteGenerator.tsx` (Submit button language):**
-```tsx
-<<<<<<< SEARCH
-            ) : success ? (
-              <motion.div
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 15 }}
-                className="flex items-center gap-2"
-              >
-                <Check size={18} />
-                <span>Enregistré !</span>
-              </motion.div>
-=======
-            ) : success ? (
-              <motion.div
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 15 }}
-                className="flex items-center gap-2"
-              >
-                <Check size={18} />
-                <span>Saved Successfully!</span>
-              </motion.div>
 >>>>>>> REPLACE
 ```
 
 ---
 
-### 5. [Low] Responsive Theme Color Integration for SVGs (Dashboard.tsx)
+### 5. [Low] Theme Color Variable Integration for SVG Donut Charts
 
 * **Priority:** Low
 * **Estimated Difficulty:** Low
 * **KPIs to Track:** Dark/Light Theme Switch Rate, User Engagement in Light Mode.
 
 #### Problem/Impact/Solution/Effort Schema
-* **Problem:** `DonutChart` inside `Dashboard.tsx` relies on hardcoded hex codes (`#64748b`, etc.) for rendering SVG slices, which do not synchronize dynamically with Tailwind CSS theme configuration or light/dark CSS states.
-* **Impact:** Poor color harmony and potential contrast access violations in Light Mode.
-* **Solution:** Leverage Tailwind standard theme colors via CSS custom variables (`var(--color-...)`) inside the component or reference CSS properties that automatically shift based on the `.light` or `.dark` classes active on the HTML tag.
+* **Problem:** SVG donut chart color representations use hardcoded hex codes (`#3b82f6`, etc.) that mismatch during dark/light theme switching.
+* **Impact:** Visual contrast issues and compromised aesthetic unity across theme changes.
+* **Solution:** Replace fixed codes with CSS Custom Property variables (`var(--color-...)`) linked to active Tailwind themes.
 * **Effort:** Low.
 
 #### Concrete Code Example
@@ -347,7 +265,6 @@ const STATUS_COLORS: Record<string, string> = {
   Rejected: '#f43f5e',
 };
 =======
-// Dynamically resolve colors mapping to theme variables for active light/dark state
 const STATUS_COLORS: Record<string, string> = {
   Draft: 'var(--color-slate-500, #64748b)',
   Sent: 'var(--color-blue-500, #3b82f6)',
@@ -359,6 +276,6 @@ const STATUS_COLORS: Record<string, string> = {
 
 ---
 
-## 3. Cost-Effective Improvements Summary
+## 3. High-ROI Improvement Summary
 
-The most immediate, high-ROI improvement that can be completed with minimal lines of code is the **Dynamic ESM Code Splitting for Export Generators** and **Localization Hardcoded String Standardization**. Removing over 1.2MB of JS assets from the initial document payload ensures instant first-load speeds. Standardizing hardcoded English translations across French pockets requires simple find-and-replace, instantly boosting product trust and global compliance.
+Standardizing the application to load **heavy export utilities asynchronously (dynamic ESM ESM ESM code splitting)** offers immediate, measurable performance gains with under 20 lines of changes. By moving the heavy weight of `jspdf` and `exceljs` out of the initial application compilation bundle, we instantly optimize the First Contentful Paint and SEO response times. Standardizing translation constants is another high-impact, low-effort action that immediately builds international business credibility.
