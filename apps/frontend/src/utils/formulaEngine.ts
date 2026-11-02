@@ -56,7 +56,11 @@ export function parseCellRef(ref: string): CellCoord | null {
 /**
  * Extract dependencies for a cell formula.
  */
-export function extractFormulaRefs(formula: string, colKeys: string[], rowIndex: number): string[] {
+export function extractFormulaRefs(
+  formula: string,
+  colKeys: string[],
+  rowIndex: number
+): string[] {
   if (!formula.startsWith('=')) return [];
   const expr = formula.substring(1);
   const refs = new Set<string>();
@@ -69,7 +73,7 @@ export function extractFormulaRefs(formula: string, colKeys: string[], rowIndex:
     const rowStart = parseInt(match[2], 10) - 1;
     const colEnd = match[3];
     const rowEnd = parseInt(match[4], 10) - 1;
-
+    
     const colIndexStart = letterToColIndex(colStart);
     const colIndexEnd = letterToColIndex(colEnd);
 
@@ -101,7 +105,7 @@ export function extractFormulaRefs(formula: string, colKeys: string[], rowIndex:
     const word = match[0];
     const upperWord = word.toUpperCase();
     if (upperWord === 'SUM' || upperWord === 'AVERAGE' || upperWord === 'COUNT') continue;
-
+    
     if (colKeys.includes(word)) {
       refs.add(`${word}-${rowIndex}`);
     }
@@ -116,11 +120,11 @@ export function extractFormulaRefs(formula: string, colKeys: string[], rowIndex:
 export function evaluateFormula(
   formula: string,
   rowData: Record<string, unknown>,
-  context?: {
-    values: Record<string, unknown>;
-    colKeys: string[];
+  context?: { 
+    values: Record<string, unknown>; 
+    colKeys: string[]; 
     rowCount: number;
-  },
+  }
 ): { value: CellValue; error: string | null } {
   if (!formula.startsWith('=')) {
     return { value: formula, error: null };
@@ -174,7 +178,7 @@ export function evaluateFormula(
     }
 
     const result = safeEval(resolvedExpr);
-
+    
     if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
       return { value: Math.round(result * 100) / 100, error: null };
     }
@@ -236,15 +240,9 @@ function safeEval(expr: string): number | null {
     let left = parseFactor();
     while (true) {
       const ch = peek();
-      if (ch === '*') {
-        consume();
-        left *= parseFactor();
-      } else if (ch === '/') {
-        consume();
-        const right = parseFactor();
-        if (right === 0) throw new Error('Division par zéro');
-        left /= right;
-      } else break;
+      if (ch === '*') { consume(); left *= parseFactor(); }
+      else if (ch === '/') { consume(); const right = parseFactor(); if (right === 0) throw new Error('Division by zero'); left /= right; }
+      else break;
     }
     return left;
   }
@@ -253,13 +251,9 @@ function safeEval(expr: string): number | null {
     let left = parseTerm();
     while (true) {
       const ch = peek();
-      if (ch === '+') {
-        consume();
-        left += parseTerm();
-      } else if (ch === '-') {
-        consume();
-        left -= parseTerm();
-      } else break;
+      if (ch === '+') { consume(); left += parseTerm(); }
+      else if (ch === '-') { consume(); left -= parseTerm(); }
+      else break;
     }
     return left;
   }
@@ -277,7 +271,7 @@ function evaluateSum(
   arg: string,
   values: Record<string, unknown>,
   colKeys: string[],
-  rowCount: number,
+  rowCount: number
 ): { value: CellValue; error: string | null } {
   // Check coordinate range e.g. A1:B3
   const rangeMatch = arg.match(/^([A-Z]+)([0-9]+):([A-Z]+)([0-9]+)$/i);
@@ -319,7 +313,7 @@ function evaluateAverage(
   arg: string,
   values: Record<string, unknown>,
   colKeys: string[],
-  rowCount: number,
+  rowCount: number
 ): { value: CellValue; error: string | null } {
   const rangeMatch = arg.match(/^([A-Z]+)([0-9]+):([A-Z]+)([0-9]+)$/i);
   if (rangeMatch) {
@@ -362,9 +356,12 @@ function evaluateAverage(
 /**
  * Topologically recalculates all formula cells across the entire sheet
  */
-export function recalculateSheet(columns: { id: string; name: string }[], rows: SheetRow[]): SheetRow[] {
-  const colKeys = columns.map((c) => c.id);
-
+export function recalculateSheet(
+  columns: { id: string; name: string }[],
+  rows: SheetRow[]
+): SheetRow[] {
+  const colKeys = columns.map(c => c.id);
+  
   // 1. Build formulas map and static values map
   const formulas: Record<string, string> = {};
   const values: Record<string, unknown> = {};
@@ -383,7 +380,7 @@ export function recalculateSheet(columns: { id: string; name: string }[], rows: 
           const num = parseNumericValue(rawTrimmed);
           // If it looks like a number (after stripping commas), use the numeric value
           const isNumeric = /^-?[\d,]+(\.\d+)?$/.test(rawTrimmed);
-          values[cellKey] = isNumeric ? num : cell.raw || null;
+          values[cellKey] = isNumeric ? num : (cell.raw || null);
         }
         errors[cellKey] = null;
       }
@@ -467,7 +464,7 @@ export function recalculateSheet(columns: { id: string; name: string }[], rows: 
     const res = evaluateFormula(formula, rowData, {
       values,
       colKeys,
-      rowCount: rows.length,
+      rowCount: rows.length
     });
     values[cellKey] = res.value;
     errors[cellKey] = res.error || errors[cellKey];
@@ -482,13 +479,13 @@ export function recalculateSheet(columns: { id: string; name: string }[], rows: 
         newCells[colId] = {
           ...newCells[colId],
           value: (values[cellKey] ?? null) as CellValue,
-          error: errors[cellKey] ?? null,
+          error: errors[cellKey] ?? null
         };
       }
     });
     return {
       ...row,
-      cells: newCells,
+      cells: newCells
     };
   });
 }

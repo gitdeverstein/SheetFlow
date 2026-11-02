@@ -57,14 +57,15 @@ export const useSheetStore = create<SheetStoreState>()((...args) => {
 
     setFilter: (colId, val) => set((state) => ({ filters: { ...state.filters, [colId]: val } })),
 
-    setSort: (colId) =>
-      set((state) => {
-        const current = state.sort;
-        if (current?.column === colId) {
-          return current.direction === 'asc' ? { sort: { column: colId, direction: 'desc' as const } } : { sort: null };
-        }
-        return { sort: { column: colId, direction: 'asc' as const } };
-      }),
+    setSort: (colId) => set((state) => {
+      const current = state.sort;
+      if (current?.column === colId) {
+        return current.direction === 'asc'
+          ? { sort: { column: colId, direction: 'desc' as const } }
+          : { sort: null };
+      }
+      return { sort: { column: colId, direction: 'asc' as const } };
+    }),
 
     prefetchData: async () => {
       set({ loading: true });

@@ -1,4 +1,5 @@
 import { TAX_RATE_LABEL } from '@sheetflow/shared';
+
 import { API_BASE, apiFetch } from '../store/api.js';
 
 export interface ExportQuoteItem {
@@ -28,11 +29,10 @@ export async function fetchFullQuote(id: string): Promise<ExportFullQuote> {
 }
 
 export async function exportQuotePdf(quote: ExportFullQuote): Promise<void> {
-  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
-    import('jspdf'),
+  const [jsPDF, { default: autoTable }] = await Promise.all([
+    import('jspdf').then((m) => m.default),
     import('jspdf-autotable'),
   ]);
-
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
 
   doc.setFontSize(22);
@@ -139,7 +139,7 @@ export async function exportQuotePdf(quote: ExportFullQuote): Promise<void> {
 }
 
 export async function exportQuoteExcel(quote: ExportFullQuote): Promise<void> {
-  const ExcelJS = (await import('exceljs')).default;
+  const ExcelJS = await import('exceljs').then((m) => m.default);
   const workbook = new ExcelJS.Workbook();
   const ws = workbook.addWorksheet('Quote');
 

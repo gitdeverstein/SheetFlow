@@ -19,13 +19,10 @@ export const InventoryService = {
   },
 
   async create(data: Omit<InventoryItem, 'id' | 'createdAt'>) {
-    const [inserted] = await getDb()
-      .insert(inventory)
-      .values({
-        ...data,
-        price: data.price.toFixed(2),
-      })
-      .returning();
+    const [inserted] = await getDb().insert(inventory).values({
+      ...data,
+      price: data.price.toFixed(2)
+    }).returning();
     return inserted;
   },
 
@@ -47,7 +44,7 @@ export const InventoryService = {
   async bulkUpsert(rows: Array<{ sku: string; name: string; stock: number; alertThreshold: number; price: number }>) {
     return await getDb()
       .insert(inventory)
-      .values(rows.map((r) => ({ ...r, price: r.price.toFixed(2) })))
+      .values(rows.map(r => ({ ...r, price: r.price.toFixed(2) })))
       .onConflictDoUpdate({
         target: inventory.sku,
         set: {
@@ -58,5 +55,5 @@ export const InventoryService = {
         },
       })
       .returning();
-  },
+  }
 };

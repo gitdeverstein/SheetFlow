@@ -72,14 +72,7 @@ describe('QuoteService', () => {
 
   describe('findById', () => {
     it('should return a quote with items', async () => {
-      const mockQuote = {
-        id: 'q1',
-        quoteNumber: 'QT-2026-001',
-        customerId: 'c1',
-        status: 'Draft',
-        total: '100.00',
-        customerName: 'Acme Corp',
-      };
+      const mockQuote = { id: 'q1', quoteNumber: 'QT-2026-001', customerId: 'c1', status: 'Draft', total: '100.00', customerName: 'Acme Corp' };
       mockDb.select.mockReturnValue(qb([mockQuote]));
       const result = await QuoteService.findById('q1');
       expect(result).toBeDefined();

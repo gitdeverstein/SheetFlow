@@ -1,12 +1,5 @@
 import type { StateCreator } from 'zustand';
-import {
-  CUSTOMER_STATUSES,
-  type SheetColumn,
-  type SheetRow,
-  type CellValue,
-  type Customer,
-  type InventoryItem,
-} from '@sheetflow/shared';
+import { CUSTOMER_STATUSES, type SheetColumn, type SheetRow, type CellValue, type Customer, type InventoryItem } from '@sheetflow/shared';
 import { evaluateFormula, recalculateSheet } from '../utils/formulaEngine.js';
 
 export interface SpreadsheetSlice {
@@ -37,10 +30,7 @@ type StoreGet = () => {
   addToast: (text: string, type?: 'success' | 'info' | 'error') => void;
 };
 
-export const createSpreadsheetSlice: StateCreator<SheetStoreState, [], [], SpreadsheetSlice> = (
-  set,
-  get: StoreGet,
-) => ({
+export const createSpreadsheetSlice: StateCreator<SheetStoreState, [], [], SpreadsheetSlice> = (set, get: StoreGet) => ({
   columns: {
     crm: [
       { id: 'name', name: 'Name', type: 'text' },
@@ -107,20 +97,12 @@ export const createSpreadsheetSlice: StateCreator<SheetStoreState, [], [], Sprea
           const colKeys = state.columns[tab].map((c: SheetColumn) => c.id);
           const valuesMap: Record<string, CellValue> = {};
           state.rows[tab].forEach((r: SheetRow, rIdx: number) => {
-            colKeys.forEach((ck: string) => {
-              valuesMap[`${ck}-${rIdx}`] = r.cells[ck]?.value ?? null;
-            });
+            colKeys.forEach((ck: string) => { valuesMap[`${ck}-${rIdx}`] = r.cells[ck]?.value ?? null; });
           });
-          const result = evaluateFormula(rawValue, rowData, {
-            values: valuesMap,
-            colKeys,
-            rowCount: state.rows[tab].length,
-          });
+          const result = evaluateFormula(rawValue, rowData, { values: valuesMap, colKeys, rowCount: state.rows[tab].length });
           evaluatedValue = result.value;
           evaluatedError = result.error ?? null;
-        } catch (e) {
-          evaluatedError = e instanceof Error ? e.message : 'Formula error';
-        }
+        } catch (e) { evaluatedError = e instanceof Error ? e.message : 'Formula error'; }
       }
       cells[colId] = { id: `${colId}-${rowId}`, raw: rawValue, value: evaluatedValue, error: evaluatedError };
       row.cells = cells;
@@ -128,8 +110,8 @@ export const createSpreadsheetSlice: StateCreator<SheetStoreState, [], [], Sprea
       return { rows: { ...state.rows, [tab]: tabRows } };
     });
 
-    const hasFormulas = get().rows[tab].some((r: SheetRow) =>
-      Object.values(r.cells).some((c) => typeof c.raw === 'string' && c.raw.startsWith('=')),
+    const hasFormulas = (get().rows[tab] || []).some((r: SheetRow) =>
+      Object.values(r.cells).some((c) => typeof c.raw === 'string' && c.raw.startsWith('='))
     );
     if (!hasFormulas) return;
 
@@ -161,11 +143,8 @@ export const createSpreadsheetSlice: StateCreator<SheetStoreState, [], [], Sprea
   saveSpreadsheetRow: async (tab, rowId) => {
     set({ savingRowId: rowId });
     const state = get();
-    const row = state.rows[tab].find((r: SheetRow) => r.id === rowId);
-    if (!row) {
-      set({ savingRowId: null });
-      return;
-    }
+    const row = (state.rows[tab] || []).find((r: SheetRow) => r.id === rowId);
+    if (!row) { set({ savingRowId: null }); return; }
     const payload: Record<string, unknown> = {};
     for (const colId of Object.keys(row.cells)) {
       let cellVal = row.cells[colId]?.value;
@@ -198,9 +177,7 @@ export const createSpreadsheetSlice: StateCreator<SheetStoreState, [], [], Sprea
 
   deleteSpreadsheetRow: async (tab, rowId) => {
     if (rowId.startsWith('new-')) {
-      set((state: SheetStoreState) => ({
-        rows: { ...state.rows, [tab]: state.rows[tab].filter((r: SheetRow) => r.id !== rowId) },
-      }));
+      set((state: SheetStoreState) => ({ rows: { ...state.rows, [tab]: (state.rows[tab] || []).filter((r: SheetRow) => r.id !== rowId) } }));
       return;
     }
     const state = get();

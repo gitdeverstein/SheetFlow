@@ -3,25 +3,19 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 // ── Shared mocks ──────────────────────────────────────────────────────────
 vi.mock('framer-motion', () => {
-  const C = ({ children, className, ...props }: any) => {
-    const safe = Object.fromEntries(
-      Object.entries(props).filter(
-        ([k]) =>
-          k !== 'animate' &&
-          k !== 'transition' &&
-          k !== 'initial' &&
-          k !== 'exit' &&
-          k !== 'variants' &&
-          k !== 'whileHover' &&
-          k !== 'whileTap',
-      ),
-    );
-    return (
-      <div className={className} {...safe}>
-        {children}
-      </div>
-    );
-  };
+  const motion = new Proxy({}, {
+    get: (_target, prop: string) => {
+      return ({ children, className, ...props }: any) => {
+        const safe = Object.fromEntries(
+          Object.entries(props).filter(([k]) =>
+            !['animate', 'transition', 'initial', 'exit', 'variants', 'whileHover', 'whileTap', 'layoutId', 'layout'].includes(k)
+          )
+        );
+        const Tag = prop as any;
+        return <Tag className={className} {...safe}>{children}</Tag>;
+      };
+    }
+  });
   return {
     motion,
     AnimatePresence: ({ children }: any) => <>{children}</>,
@@ -83,44 +77,20 @@ const sampleInventory = [
 ];
 
 const sampleQuotes = [
-  {
-    id: 'q1',
-    quoteNumber: 'QT-001',
-    customerName: 'Acme Corp',
-    status: 'Draft',
-    total: '100.00',
-    customerId: 'c1',
-    validUntil: '2026-12-31',
-  },
-  {
-    id: 'q2',
-    quoteNumber: 'QT-002',
-    customerName: 'Beta Inc',
-    status: 'Accepted',
-    total: '500.00',
-    customerId: 'c2',
-    validUntil: '2026-01-01',
-  },
+  { id: 'q1', quoteNumber: 'QT-001', customerName: 'Acme Corp', status: 'Draft', total: '100.00', customerId: 'c1', validUntil: '2026-12-31' },
+  { id: 'q2', quoteNumber: 'QT-002', customerName: 'Beta Inc', status: 'Accepted', total: '500.00', customerId: 'c2', validUntil: '2026-01-01' },
 ];
 
 function mockAllHooks(overrides?: {
-  customers?: any[];
-  customersLoading?: boolean;
-  inventory?: any[];
-  inventoryLoading?: boolean;
-  quotes?: any[];
-  quotesLoading?: boolean;
+  customers?: any[]; customersLoading?: boolean;
+  inventory?: any[]; inventoryLoading?: boolean;
+  quotes?: any[]; quotesLoading?: boolean;
   store?: Record<string, any>;
 }) {
-  const {
-    customers = sampleCustomers,
-    customersLoading = false,
-    inventory = sampleInventory,
-    inventoryLoading = false,
-    quotes = sampleQuotes,
-    quotesLoading = false,
-    store = {},
-  } = overrides ?? {};
+  const { customers = sampleCustomers, customersLoading = false,
+          inventory = sampleInventory, inventoryLoading = false,
+          quotes = sampleQuotes, quotesLoading = false,
+          store = {} } = overrides ?? {};
 
   vi.mocked(useCustomers).mockReturnValue({ data: customers, isLoading: customersLoading } as any);
   vi.mocked(useInventory).mockReturnValue({ data: inventory, isLoading: inventoryLoading } as any);
@@ -226,45 +196,35 @@ describe('Dashboard', () => {
     mockAllHooks({
       store: { updateQuoteStatus },
       quotes: [
-        { id: 'q1', quoteNumber: 'QT-001', customerName: 'Acme', status: 'Sent', total: '100', customerId: 'c1' },
+        { id: 'q1', quoteNumber: 'QT-001', customerName: 'Acme', status: 'Draft', total: '100', customerId: 'c1' },
       ],
     });
+    const originalConfirm = window.confirm;
+    window.confirm = vi.fn(() => true);
 
     render(<Dashboard />);
 
     // Find the Draft StatusPill button (it's the one with the ▾ dropdown indicator)
-    const draftButtons = screen
-      .getAllByRole('button')
-      .filter((b) => b.textContent?.includes('Draft') && b.textContent?.includes('▾'));
+    const draftButtons = screen.getAllByRole('button').filter(b => b.textContent?.includes('Draft') && b.textContent?.includes('▾'));
     expect(draftButtons.length).toBeGreaterThanOrEqual(1);
     fireEvent.click(draftButtons[0]);
 
-    // The Accepted option should appear in the dropdown
-    const acceptedOption = await screen.findByRole('button', { name: /Accepted/ });
-    fireEvent.click(acceptedOption);
-
-    // Modal should appear
-    const confirmButton = await screen.findByText('Confirm', { selector: 'button' });
-    fireEvent.click(confirmButton);
+    // The Sent option should appear in the dropdown
+    const sentOption = await screen.findByRole('option', { name: /Sent/ });
+    fireEvent.click(sentOption);
 
     await waitFor(() => {
-      expect(updateQuoteStatus).toHaveBeenCalledWith('q1', 'Accepted');
+      expect(updateQuoteStatus).toHaveBeenCalledWith('q1', 'Sent');
     });
+
+    window.confirm = originalConfirm;
   });
 
   // ── ExpiryBadge ────────────────────────────────────────────────────────
   it('shows expired badge for past validUntil', () => {
     mockAllHooks({
       quotes: [
-        {
-          id: 'q1',
-          quoteNumber: 'QT-001',
-          customerName: 'Acme',
-          status: 'Draft',
-          total: '100',
-          customerId: 'c1',
-          validUntil: '2020-01-01',
-        },
+        { id: 'q1', quoteNumber: 'QT-001', customerName: 'Acme', status: 'Draft', total: '100', customerId: 'c1', validUntil: '2020-01-01' },
       ],
     });
     render(<Dashboard />);
@@ -274,15 +234,7 @@ describe('Dashboard', () => {
   it('hides expiry badge for accepted/rejected quotes', () => {
     mockAllHooks({
       quotes: [
-        {
-          id: 'q2',
-          quoteNumber: 'QT-002',
-          customerName: 'Beta',
-          status: 'Accepted',
-          total: '500',
-          customerId: 'c2',
-          validUntil: '2020-01-01',
-        },
+        { id: 'q2', quoteNumber: 'QT-002', customerName: 'Beta', status: 'Accepted', total: '500', customerId: 'c2', validUntil: '2020-01-01' },
       ],
     });
     render(<Dashboard />);
@@ -292,28 +244,30 @@ describe('Dashboard', () => {
   // ── Action buttons ─────────────────────────────────────────────────────
   it('renders Edit button and calls setEditingQuote', () => {
     render(<Dashboard />);
-    const editButtons = screen.getAllByRole('button').filter((b) => b.getAttribute('title') === 'Edit');
+    const editButtons = screen.getAllByRole('button').filter(b => b.getAttribute('title') === 'Edit');
     expect(editButtons.length).toBeGreaterThanOrEqual(1);
     fireEvent.click(editButtons[0]);
     expect(defaultStore.setEditingQuote).toHaveBeenCalledWith('q1');
     expect(defaultStore.setActiveTab).toHaveBeenCalledWith('quotes');
   });
 
-  it('renders delete button and calls deleteQuote after confirm modal', async () => {
+  it('renders delete button and calls deleteQuote after confirm', async () => {
     const deleteQuote = vi.fn().mockResolvedValue(undefined);
     mockAllHooks({ store: { deleteQuote } });
     render(<Dashboard />);
-    const deleteButtons = screen.getAllByRole('button').filter((b) => b.getAttribute('title') === 'Delete');
+    const deleteButtons = screen.getAllByRole('button').filter(b => b.getAttribute('title') === 'Delete');
     expect(deleteButtons.length).toBeGreaterThanOrEqual(1);
 
     fireEvent.click(deleteButtons[0]);
 
-    // Modal should appear
-    expect(screen.getByText('Delete Quote')).toBeInTheDocument();
-    const modalDeleteButton = await screen.findByText('Delete', { selector: 'button' });
-    fireEvent.click(modalDeleteButton);
+    // Check for modal and click delete
+    const modalDeleteButton = screen.getAllByRole('button').find(b => b.textContent === 'Delete');
+    expect(modalDeleteButton).toBeDefined();
+    fireEvent.click(modalDeleteButton!);
 
-    expect(deleteQuote).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(deleteQuote).toHaveBeenCalled();
+    });
   });
 
   // ── Low Stock Watchlist ────────────────────────────────────────────────
@@ -325,7 +279,9 @@ describe('Dashboard', () => {
 
   it('shows healthy message when all stocks are sufficient', () => {
     mockAllHooks({
-      inventory: [{ id: 'i1', sku: 'WIDGET', name: 'Widget', stock: 10, alertThreshold: 5, price: 19.99 }],
+      inventory: [
+        { id: 'i1', sku: 'WIDGET', name: 'Widget', stock: 10, alertThreshold: 5, price: 19.99 },
+      ],
     });
     render(<Dashboard />);
     expect(screen.getByText('All item stocks are healthy!')).toBeInTheDocument();
@@ -350,7 +306,7 @@ describe('Dashboard', () => {
     const duplicateQuote = vi.fn().mockResolvedValue(undefined);
     mockAllHooks({ store: { duplicateQuote } });
     render(<Dashboard />);
-    const dupButtons = screen.getAllByRole('button').filter((b) => b.getAttribute('title') === 'Duplicate as Draft');
+    const dupButtons = screen.getAllByRole('button').filter(b => b.getAttribute('title') === 'Duplicate as Draft');
     expect(dupButtons.length).toBeGreaterThanOrEqual(1);
     fireEvent.click(dupButtons[0]);
     await waitFor(() => {

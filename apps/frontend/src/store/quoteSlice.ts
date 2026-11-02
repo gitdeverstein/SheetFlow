@@ -110,27 +110,33 @@ export const createQuoteSlice: StateCreator<SheetStoreState, [], [], QuoteSlice>
 
   generatePdf: async (id) => {
     set({ generatingPdfId: id });
-    try {
-      const fullQuote = await fetchFullQuote(id);
-      await exportQuotePdf(fullQuote);
-      get().addToast('PDF downloaded successfully');
-    } catch (err: unknown) {
-      get().addToast(err instanceof Error ? err.message : 'Failed to generate PDF', 'error');
-    } finally {
-      set({ generatingPdfId: null });
-    }
+    await apiAction(
+      async () => {
+        const fullQuote = await fetchFullQuote(id);
+        await exportQuotePdf(fullQuote);
+      },
+      get().addToast,
+      {
+        successMessage: 'PDF downloaded successfully',
+        errorMessage: 'Failed to generate PDF',
+      },
+    );
+    set({ generatingPdfId: null });
   },
 
   exportExcel: async (id) => {
     set({ exportingExcelId: id });
-    try {
-      const fullQuote = await fetchFullQuote(id);
-      await exportQuoteExcel(fullQuote);
-      get().addToast('Excel file downloaded successfully');
-    } catch (err: unknown) {
-      get().addToast(err instanceof Error ? err.message : 'Failed to export Excel', 'error');
-    } finally {
-      set({ exportingExcelId: null });
-    }
+    await apiAction(
+      async () => {
+        const fullQuote = await fetchFullQuote(id);
+        await exportQuoteExcel(fullQuote);
+      },
+      get().addToast,
+      {
+        successMessage: 'Excel file downloaded successfully',
+        errorMessage: 'Failed to export Excel',
+      },
+    );
+    set({ exportingExcelId: null });
   },
 });

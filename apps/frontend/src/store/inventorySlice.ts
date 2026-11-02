@@ -9,9 +9,7 @@ export interface InventorySlice {
   addInventoryItem: (data: Omit<InventoryItem, 'id'>) => Promise<void>;
   updateInventoryItem: (id: string, data: Partial<InventoryItem>) => Promise<void>;
   deleteInventoryItem: (id: string) => Promise<void>;
-  bulkImportInventory: (
-    rows: Array<{ sku: string; name: string; stock: number; alertThreshold: number; price: number }>,
-  ) => Promise<void>;
+  bulkImportInventory: (rows: Array<{ sku: string; name: string; stock: number; alertThreshold: number; price: number }>) => Promise<void>;
 }
 
 type StoreGet = () => {
@@ -22,6 +20,7 @@ type StoreGet = () => {
 type SheetStoreState = import('./sheetStore.js').SheetStoreState;
 
 export const createInventorySlice: StateCreator<SheetStoreState, [], [], InventorySlice> = (_, get: StoreGet) => ({
+
   addInventoryItem: async (data) => {
     await apiAction(
       () => apiFetch(`${API_BASE}/inventory`, {

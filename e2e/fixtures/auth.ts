@@ -41,13 +41,12 @@ export async function login(page: Page, email: string, password: string): Promis
     throw new Error(`Login failed: ${loginResult.error} (status: ${loginResult.status})`);
   }
 
-  await emailInput.fill(email);
-  await page.locator('input[type="password"]').fill(password);
-  await page.locator('form').getByRole('button', { name: /sign in|login|log in/i }).click();
+  // Reload the page so React picks up the session cookie
+  await page.goto('/');
+  await page.waitForLoadState('load');
 
-  // Wait for dashboard to appear
-  await page.waitForSelector('text=Real-time KPIs');
-  await page.waitForLoadState('networkidle');
+  // Wait for the dashboard to load
+  await page.getByRole('heading', { name: /Real-time KPIs/i }).waitFor({ timeout: 15000 });
 }
 
 /**

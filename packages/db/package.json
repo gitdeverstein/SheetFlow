@@ -12,15 +12,12 @@
     "db:seed": "tsx src/seed.ts"
   },
   "dependencies": {
-    "bcryptjs": "^3.0.3",
-    "dotenv": "^16.6.1",
+    "argon2": "^0.44.0",
     "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.5"
   },
   "devDependencies": {
-    "dotenv": "^16.6.1",
     "drizzle-kit": "^0.31.10",
-    "tsx": "^4.22.4",
     "typescript": "^6.0.2"
   }
 }
