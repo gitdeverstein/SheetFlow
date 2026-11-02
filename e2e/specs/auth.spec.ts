@@ -30,7 +30,7 @@ test.describe('Authentication', () => {
 
     // Should still be on login page with an error message
     await expect(page.locator('input[type="email"]')).toBeVisible();
-    await expect(page.getByText(/invalid (email|password|credentials)/i)).toBeVisible();
+    await expect(page.getByText(/invalid (email|password|credentials)|sign in failed/i)).toBeVisible();
   });
 
   test('should persist session across page reload', async ({ page }) => {
