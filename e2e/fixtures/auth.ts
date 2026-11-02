@@ -45,8 +45,8 @@ export async function login(page: Page, email: string, password: string): Promis
   await page.goto('/');
   await page.waitForLoadState('load');
 
-  // Wait for dashboard to appear
-  await expect(page.locator('nav')).toBeVisible({ timeout: 15000 });
+  // Wait for the dashboard to load
+  await page.getByRole('heading', { name: /Real-time KPIs/i }).waitFor({ timeout: 15000 });
 }
 
 /**

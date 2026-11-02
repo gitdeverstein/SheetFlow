@@ -113,7 +113,7 @@ export const createQuoteSlice: StateCreator<SheetStoreState, [], [], QuoteSlice>
     await apiAction(
       async () => {
         const fullQuote = await fetchFullQuote(id);
-        exportQuotePdf(fullQuote);
+        await exportQuotePdf(fullQuote);
       },
       get().addToast,
       {

@@ -8,6 +8,8 @@ import { Plus, Trash2, FileText, Check, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SkeletonLoader from './SkeletonLoader.js';
 import AnimatedSection from './AnimatedSection.js';
+import { Button } from './ui/Button.js';
+import { Combobox } from './ui/Combobox.js';
 
 export default function QuoteGenerator() {
   const { createQuote, updateQuote, editingQuoteId, setEditingQuote } = useSheetStore();
@@ -20,8 +22,6 @@ export default function QuoteGenerator() {
   const [validUntil, setValidUntil] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [customerSearch, setCustomerSearch] = useState('');
-  const [productSearch, setProductSearch] = useState<string[]>([]);
   const [loadingQuote, setLoadingQuote] = useState(false);
 
   // Load quote data when editing
@@ -171,16 +171,16 @@ export default function QuoteGenerator() {
           </p>
         </div>
         {editingQuoteId && (
-          <button
+          <Button
+            variant="secondary"
             onClick={() => {
               setEditingQuote(null);
               setCustomerId('');
               setItems([]);
             }}
-            className="text-sm text-slate-400 hover:text-white px-3 py-1.5 border border-slate-800 rounded-xl transition-colors"
           >
             Cancel Editing
-          </button>
+          </Button>
         )}
       </div>
 
@@ -198,50 +198,30 @@ export default function QuoteGenerator() {
         {/* Input Form */}
         <form onSubmit={handleSubmit} className="lg:col-span-2 glass-panel p-6 rounded-2xl space-y-6">
           {/* Client Selection */}
-          <div className="space-y-2">
-            <label htmlFor="quote-customer-select" className="text-sm font-semibold text-slate-300">Client / Customer</label>
-            <input
-              type="text"
-              placeholder="Search customers..."
-              value={customerSearch}
-              onChange={(e) => setCustomerSearch(e.target.value)}
-              aria-label="Filter customer options"
-              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-slate-300 focus:outline-none focus:border-brand-500 mb-2"
-            />
-            <select
-              id="quote-customer-select"
-              required
-              value={customerId}
-              onChange={(e) => { setCustomerId(e.target.value); setCustomerSearch(''); }}
-              aria-label="Select a Customer"
-              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-300 focus:outline-none focus:border-brand-500 cursor-pointer"
-            >
-              <option value="">Select a Customer...</option>
-              {customers
-                .filter((c) => !customerSearch || c.name.toLowerCase().includes(customerSearch.toLowerCase()) || c.company?.toLowerCase().includes(customerSearch.toLowerCase()))
-                .map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} {c.company ? `(${c.company})` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Combobox
+            label="Client / Customer"
+            placeholder="Select a Customer..."
+            options={customers.map((c) => ({
+              id: c.id!,
+              label: c.name,
+              subLabel: c.company || undefined,
+            }))}
+            value={customerId}
+            onChange={(val) => setCustomerId(val)}
+          />
 
           {/* Line Items */}
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <label className="text-sm font-semibold text-slate-300">Line Items</label>
-              <motion.button
+              <h2 className="text-sm font-semibold text-slate-300">Line Items</h2>
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={handleAddItem}
-                whileHover={{ scale: 1.02, backgroundColor: 'rgba(30, 41, 59, 0.8)' }}
-                whileTap={{ scale: 0.98 }}
-                aria-label="Add item line"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-300 rounded-lg transition-colors cursor-pointer"
+                icon={<Plus size={14} />}
               >
-                <Plus size={14} />
-                <span>Add Item</span>
-              </motion.button>
+                Add Item
+              </Button>
             </div>
 
             <div className="space-y-3">
@@ -260,35 +240,18 @@ export default function QuoteGenerator() {
                       className="grid grid-cols-12 gap-3 bg-slate-900/30 p-3 rounded-xl border border-slate-900"
                     >
                       {/* Product Selector */}
-                      <div className="col-span-12 sm:col-span-5 space-y-1">
-                        <input
-                          type="text"
-                          placeholder="Search products..."
-                          value={productSearch[index] || ''}
-                          onChange={(e) => {
-                            const copy = [...productSearch];
-                            copy[index] = e.target.value;
-                            setProductSearch(copy);
-                          }}
-                          aria-label={`Search product for line ${index + 1}`}
-                          className="w-full bg-slate-950 border border-slate-800/80 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-brand-500"
-                        />
-                        <select
-                          required
+                      <div className="col-span-12 sm:col-span-5">
+                        <Combobox
+                          placeholder="Select Product..."
+                          ariaLabel={`Select product for item ${index + 1}`}
+                          options={inventory.map((p) => ({
+                            id: p.id!,
+                            label: p.name,
+                            subLabel: `${p.sku} • $${Number(p.price).toFixed(2)} • ${p.stock} in stock`,
+                          }))}
                           value={item.productId}
-                          onChange={(e) => { handleProductChange(index, e.target.value); const copy = [...productSearch]; copy[index] = ''; setProductSearch(copy); }}
-                          aria-label={`Select product for line ${index + 1}`}
-                          className="w-full bg-slate-950 border border-slate-800/80 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-brand-500 cursor-pointer"
-                        >
-                          <option value="">Select Product...</option>
-                          {inventory
-                            .filter((p) => !productSearch[index] || p.name.toLowerCase().includes(productSearch[index].toLowerCase()) || p.sku.toLowerCase().includes(productSearch[index].toLowerCase()))
-                            .map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name} - ${Number(p.price).toFixed(2)} ({p.stock} left)
-                            </option>
-                          ))}
-                        </select>
+                          onChange={(val) => handleProductChange(index, val)}
+                        />
                       </div>
 
                       {/* Quantity */}
@@ -297,10 +260,10 @@ export default function QuoteGenerator() {
                           type="number"
                           required
                           min={1}
+                          aria-label={`Quantity for item ${index + 1}`}
                           placeholder="Qty"
                           value={item.quantity || ''}
                           onChange={(e) => handleNumberChange(index, 'quantity', parseInt(e.target.value, 10) || 0)}
-                          aria-label={`Quantity for line ${index + 1}`}
                           className="w-full bg-slate-950 border border-slate-800/80 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-brand-500 font-mono"
                         />
                       </div>
@@ -311,10 +274,10 @@ export default function QuoteGenerator() {
                           type="number"
                           required
                           step="0.01"
+                          aria-label={`Unit price for item ${index + 1}`}
                           placeholder="Price"
                           value={item.unitPrice || ''}
                           onChange={(e) => handleNumberChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                          aria-label={`Unit price for line ${index + 1}`}
                           className="w-full bg-slate-950 border border-slate-800/80 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-brand-500 font-mono"
                         />
                       </div>
@@ -324,9 +287,9 @@ export default function QuoteGenerator() {
                         <motion.button
                           type="button"
                           onClick={() => handleRemoveItem(index)}
+                          aria-label={`Remove item ${index + 1}`}
                           whileHover={{ scale: 1.2, backgroundColor: 'rgba(244, 63, 94, 0.1)' }}
                           whileTap={{ scale: 0.8 }}
-                          aria-label={`Remove line ${index + 1}`}
                           className="p-2 text-rose-500 rounded-lg transition-colors cursor-pointer"
                         >
                           <Trash2 size={16} />
@@ -340,9 +303,9 @@ export default function QuoteGenerator() {
           </div>
           {/* Valid Until */}
           <div className="space-y-2">
-            <label htmlFor="quote-valid-until" className="text-sm font-semibold text-slate-300">Valid Until <span className="text-slate-500 font-normal">(optional)</span></label>
+            <label htmlFor="valid-until" className="text-sm font-semibold text-slate-300">Valid Until <span className="text-slate-500 font-normal">(optional)</span></label>
             <input
-              id="quote-valid-until"
+              id="valid-until"
               type="date"
               value={validUntil}
               onChange={(e) => setValidUntil(e.target.value)}
@@ -353,9 +316,9 @@ export default function QuoteGenerator() {
 
           {/* Notes */}
           <div className="space-y-2">
-            <label htmlFor="quote-notes" className="text-sm font-semibold text-slate-300">Notes <span className="text-slate-500 font-normal">(optional)</span></label>
+            <label htmlFor="notes" className="text-sm font-semibold text-slate-300">Notes <span className="text-slate-500 font-normal">(optional)</span></label>
             <textarea
-              id="quote-notes"
+              id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Internal notes, special instructions..."
@@ -390,48 +353,15 @@ export default function QuoteGenerator() {
           </div>
 
           {/* Submit button with Morph transition */}
-          <motion.button
+          <Button
             type="submit"
             onClick={handleSubmit}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
             disabled={!customerId || items.length === 0 || submitting}
-            className={`w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-300 relative shadow-lg disabled:opacity-50 disabled:scale-100 disabled:pointer-events-none cursor-pointer
-              ${success 
-                ? 'bg-emerald-500 shadow-emerald-500/20 text-white' 
-                : 'bg-brand-500 shadow-brand-500/20 hover:bg-brand-600 text-white'}
-            `}
+            className={`w-full py-3 ${success ? 'bg-emerald-500 shadow-emerald-500/20 text-white' : ''}`}
+            icon={submitting ? <Loader2 size={18} className="animate-spin" /> : success ? <Check size={18} /> : <FileText size={18} />}
           >
-            {submitting ? (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex items-center gap-2"
-              >
-                <Loader2 size={18} className="animate-spin" />
-                <span>Validating...</span>
-              </motion.div>
-            ) : success ? (
-              <motion.div
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 15 }}
-                className="flex items-center gap-2"
-              >
-                <Check size={18} />
-                <span>Quote saved!</span>
-              </motion.div>
-            ) : (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex items-center gap-2"
-              >
-                <FileText size={18} />
-                <span>{editingQuoteId ? 'Update Quote' : 'Create Quote'}</span>
-              </motion.div>
-            )}
-          </motion.button>
+            {submitting ? 'Validating...' : success ? 'Quote saved!' : (editingQuoteId ? 'Update Quote' : 'Create Quote')}
+          </Button>
         </div>
       </AnimatedSection>
       )}

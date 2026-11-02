@@ -2,6 +2,7 @@ import type { StateCreator } from 'zustand';
 import type { InventoryItem } from '@sheetflow/shared';
 import { API_BASE, apiFetch } from './api.js';
 import { apiAction } from './apiUtils.js';
+import { queryClient } from '../hooks/queryClient.js';
 import { inventoryKeys } from '../hooks/useInventory.js';
 
 export interface InventorySlice {
@@ -13,6 +14,7 @@ export interface InventorySlice {
 
 type StoreGet = () => {
   addToast: (text: string, type?: 'success' | 'info' | 'error', undoAction?: () => void) => void;
+  addInventoryItem: (data: Omit<InventoryItem, 'id'>) => Promise<void>;
 };
 
 type SheetStoreState = import('./sheetStore.js').SheetStoreState;
@@ -51,14 +53,25 @@ export const createInventorySlice: StateCreator<SheetStoreState, [], [], Invento
   },
 
   deleteInventoryItem: async (id) => {
+    const deletedItem = (queryClient.getQueryData<InventoryItem[]>(inventoryKeys.all) || []).find((i) => i.id === id);
+
     await apiAction(
       () => apiFetch(`${API_BASE}/inventory/${id}`, { method: 'DELETE' }),
       get().addToast,
       {
         invalidateKeys: [inventoryKeys.all],
-        successMessage: 'Product deleted',
-        successType: 'info',
         errorMessage: 'Failed to delete product',
+        onSuccess: (_result, toast) => {
+          if (!deletedItem) {
+            toast('Product deleted', 'info');
+            return;
+          }
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { id: _id, ...dataWithoutId } = deletedItem;
+          toast('Product deleted', 'info', () => {
+            get().addInventoryItem(dataWithoutId);
+          });
+        },
       },
     );
   },

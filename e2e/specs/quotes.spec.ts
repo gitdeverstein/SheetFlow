@@ -15,7 +15,7 @@ test.describe('Quote Management', () => {
   test('should render the quote form', async ({ page }) => {
     await page.getByRole('button', { name: /create quote/i }).first().click();
 
-    await expect(page.getByPlaceholder('Search customers...')).toBeVisible();
+    await expect(page.getByRole('combobox', { name: /client \/ customer/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /add item/i })).toBeVisible();
     await expect(page.getByText('Summary')).toBeVisible();
     await expect(page.getByText('Total Quote Value')).toBeVisible();
@@ -24,13 +24,11 @@ test.describe('Quote Management', () => {
   test('should select a customer and see options', async ({ page }) => {
     await page.getByRole('button', { name: /create quote/i }).first().click();
 
-    // The customer dropdown should have seed data — wait for options to load
-    const customerSelect = page.locator('select').first();
-    await expect(async () => {
-      const options = await customerSelect.locator('option').allTextContents();
-      const hasCustomer = options.some((o) => o.includes('Acme') || o.includes('Dupont') || o.includes('GreenLeaf'));
-      expect(hasCustomer).toBeTruthy();
-    }).toPass({ timeout: 15000 });
+    // Open the customer combobox — the listbox should contain seed data once loaded
+    await page.getByRole('combobox', { name: /client \/ customer/i }).click();
+    await expect(
+      page.getByRole('option').filter({ hasText: /Acme|Dupont|GreenLeaf/ }).first(),
+    ).toBeVisible({ timeout: 15000 });
   });
 
   test('should add and remove line items', async ({ page }) => {
@@ -43,15 +41,14 @@ test.describe('Quote Management', () => {
     // Add second item
     await page.getByRole('button', { name: /add item/i }).first().click();
 
-    // Should see two items now — look for product select dropdowns
-    const productSelects = page.locator('select').filter({ has: page.locator('option:has-text("Widget")') });
-    const count = await productSelects.count();
-    expect(count).toBeGreaterThanOrEqual(1);
+    // Should see two product comboboxes now
+    await expect(page.getByRole('combobox', { name: /select product for item/i })).toHaveCount(2);
 
-    // Remove an item — Trash2 buttons should be visible
-    const removeButtons = page.locator('button.text-rose-500');
-    const removeCount = await removeButtons.count();
-    expect(removeCount).toBeGreaterThanOrEqual(1);
+    // Remove an item — each line has its own remove button
+    const removeButtons = page.getByRole('button', { name: /remove item/i });
+    await expect(removeButtons).toHaveCount(2);
+    await removeButtons.first().click();
+    await expect(removeButtons).toHaveCount(1);
   });
 
   test('should calculate totals when items are added', async ({ page }) => {
@@ -63,19 +60,16 @@ test.describe('Quote Management', () => {
     // Add an item — the summary should now show zero values (no product selected)
     await page.getByRole('button', { name: /add item/i }).first().click();
 
-    // Select a customer
-    const customerSelect = page.locator('select').first();
-    await customerSelect.selectOption({ index: 1 }); // Select first real customer
+    // Select the first customer
+    await page.getByRole('combobox', { name: /client \/ customer/i }).click();
+    await page.getByRole('option').first().click();
 
-    // Select a product for the line item
-    const itemProductSelect = page.locator('select').nth(1); // Second select = product selector
-    const itemOptions = await itemProductSelect.locator('option').allTextContents();
-    if (itemOptions.length > 1) {
-      await itemProductSelect.selectOption({ index: 1 }); // Select first real product
+    // Select the first product for the line item
+    await page.getByRole('combobox', { name: /select product for item 1/i }).click();
+    await page.getByRole('option').first().click();
 
-      // Verify the summary panel updates
-      // Total should no longer be $0.00 since a product with a price was selected
-      await expect(page.getByText(/Total Quote Value/)).toBeVisible();
-    }
+    // The summary should update: a priced product was selected, so the total is no longer $0.00
+    await expect(page.getByText(/Total Quote Value/)).toBeVisible();
+    await expect(page.getByText('$0.00')).toHaveCount(0);
   });
 });
