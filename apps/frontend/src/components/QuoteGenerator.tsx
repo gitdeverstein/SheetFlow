@@ -415,31 +415,39 @@ export default function QuoteGenerator() {
                   : 'bg-brand-500 shadow-brand-500/20 hover:bg-brand-600 text-white'
               }
             `}
-            >
-              {submitting ? (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2">
-                  <Loader2 size={18} className="animate-spin" />
-                  <span>Validating...</span>
-                </motion.div>
-              ) : success ? (
-                <motion.div
-                  initial={{ scale: 0.5, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 15 }}
-                  className="flex items-center gap-2"
-                >
-                  <Check size={18} />
-                  <span>Enregistré !</span>
-                </motion.div>
-              ) : (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2">
-                  <FileText size={18} />
-                  <span>{editingQuoteId ? 'Update Quote' : 'Create Quote'}</span>
-                </motion.div>
-              )}
-            </motion.button>
-          </div>
-        </AnimatedSection>
+          >
+            {submitting ? (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center gap-2"
+              >
+                <Loader2 size={18} className="animate-spin" />
+                <span>Validating...</span>
+              </motion.div>
+            ) : success ? (
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 15 }}
+                className="flex items-center gap-2"
+              >
+                <Check size={18} />
+                <span>Saved!</span>
+              </motion.div>
+            ) : (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center gap-2"
+              >
+                <FileText size={18} />
+                <span>{editingQuoteId ? 'Update Quote' : 'Create Quote'}</span>
+              </motion.div>
+            )}
+          </motion.button>
+        </div>
+      </AnimatedSection>
       )}
     </div>
   );

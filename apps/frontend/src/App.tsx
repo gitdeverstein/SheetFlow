@@ -157,6 +157,11 @@ function App() {
             setIsLoggedIn(true);
             prefetchData();
           }}
+          onGuestMode={() => {
+            setUser({ id: 'guest', name: 'Guest User', email: 'guest@sheetflow.demo' });
+            setIsLoggedIn(true);
+            prefetchData();
+          }}
         />
       </ErrorBoundary>
     );
@@ -331,6 +336,24 @@ function App() {
                 ${toast.type === 'error' ? 'border-l-rose-500' : ''}
                 ${toast.type === 'info' ? 'border-l-brand-500' : ''}
               `}
+            >
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-slate-400 capitalize">
+                  {toast.type === 'success' ? 'Success' : toast.type}
+                </p>
+                <p className="text-sm text-slate-200 mt-0.5">{toast.text}</p>
+                {toast.undoAction && (
+                  <button
+                    onClick={() => { toast.undoAction!(); removeToast(toast.id); }}
+                    className="mt-1.5 text-xs font-semibold text-brand-400 hover:text-brand-300 transition-colors"
+                  >
+                    ↩ Undo
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => removeToast(toast.id)}
+                className="text-slate-500 hover:text-slate-300 transition-colors"
               >
                 <div className="flex-1">
                   <p className="text-xs font-semibold text-slate-400 capitalize">
