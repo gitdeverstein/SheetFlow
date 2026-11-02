@@ -1,18 +1,33 @@
-import { pgTable, uuid, text, integer, decimal, timestamp, check, index, unique } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, integer, decimal, timestamp, boolean, check, index, unique } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 
 // ── Users Table (authentication) ─────────────────────────────────────────────
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
-  name: text('name').notNull(),
+  name: text('name'),
   email: text('email').notNull().unique(),
   passwordHash: text('password_hash'),
   googleId: text('google_id'),
+  emailVerified: boolean('email_verified').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => ({
   idx_users_email: index('idx_users_email').on(table.email),
   idx_users_google_id: index('idx_users_google_id').on(table.googleId),
   uq_users_google_id: unique('uq_users_google_id').on(table.googleId),
+}));
+
+// ── Verification Tokens Table ───────────────────────────────────────────────
+export const verificationTokens = pgTable('verification_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  token: text('token').notNull().unique(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => ({
+  idx_vt_user_id: index('idx_vt_user_id').on(table.userId),
+  idx_vt_token: index('idx_vt_token').on(table.token),
 }));
 
 // ── Sessions Table ───────────────────────────────────────────────────────────

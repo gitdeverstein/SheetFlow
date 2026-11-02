@@ -1,6 +1,6 @@
 import { createDb, users, customers, inventory, quotes, quoteItems, sessions } from './index.js';
 import { sql } from 'drizzle-orm';
-import bcrypt from 'bcryptjs';
+import * as argon2 from 'argon2';
 import * as dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/sheetflow';
-const db = createDb(connectionString);
+const { db } = createDb(connectionString);
 
 async function main() {
   console.log('Seeding database...');
@@ -27,17 +27,19 @@ async function main() {
     console.log('Creating default users...');
     const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'admin123!';
     const demoPassword = process.env.SEED_DEMO_PASSWORD || 'demo1234!';
-    const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
+    const adminPasswordHash = await argon2.hash(adminPassword);
     const [adminUser] = await db.insert(users).values([{
       name: 'Admin',
       email: 'admin@sheetflow.com',
       passwordHash: adminPasswordHash,
+      emailVerified: true,
     }]).returning();
 
     const [demoUser] = await db.insert(users).values([{
       name: 'John Doe',
       email: 'john@sheetflow.com',
-      passwordHash: await bcrypt.hash(demoPassword, 12),
+      passwordHash: await argon2.hash(demoPassword),
+      emailVerified: true,
     }]).returning();
 
     console.log('Inserting customers...');

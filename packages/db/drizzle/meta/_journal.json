@@ -36,6 +36,20 @@
       "when": 1781700000000,
       "tag": "0004_add_google_auth_and_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1781633049000,
+      "tag": "0005_make_user_name_nullable",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781633980000,
+      "tag": "0006_add_email_verification",
+      "breakpoints": true
     }
   ]
 }
