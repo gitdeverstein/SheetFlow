@@ -1,19 +1,18 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Settings } from 'lucide-react';
+import { X, Settings, Sun, Moon } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   isDarkMode: boolean;
-  toggleTheme: () => void;
+  onToggleTheme: () => void;
 }
 
-export default function SettingsModal({ isOpen, onClose, isDarkMode, toggleTheme }: SettingsModalProps) {
+export default function SettingsModal({ isOpen, onClose, isDarkMode, onToggleTheme }: SettingsModalProps) {
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -21,11 +20,13 @@ export default function SettingsModal({ isOpen, onClose, isDarkMode, toggleTheme
             onClick={onClose}
             className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
           />
-          {/* Modal Dialog */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="settings-title"
             className="glass-panel w-full max-w-md rounded-2xl shadow-2xl p-6 relative border border-slate-800/80 z-10"
           >
             <button
@@ -41,7 +42,6 @@ export default function SettingsModal({ isOpen, onClose, isDarkMode, toggleTheme
               <h2 id="settings-title" className="text-xl font-display font-semibold text-white">Application Settings</h2>
             </div>
 
-            {/* Settings Form */}
             <div className="space-y-4 text-sm text-slate-300">
               <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
                 <div>
@@ -49,10 +49,11 @@ export default function SettingsModal({ isOpen, onClose, isDarkMode, toggleTheme
                   <p className="text-xs text-slate-400">Switch between light and dark appearance.</p>
                 </div>
                 <button
-                  onClick={toggleTheme}
+                  onClick={onToggleTheme}
                   className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-sm text-slate-200 transition-colors cursor-pointer"
                 >
-                  {isDarkMode ? 'Light Mode' : 'Dark Mode'}
+                  {isDarkMode ? <Sun size={14} /> : <Moon size={14} />}
+                  <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
                 </button>
               </div>
 

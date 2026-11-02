@@ -1,116 +1,106 @@
 # Frontend Audit Report: SheetFlow
 
-This report identifies key areas for improvement across the SheetFlow web application to enhance user experience, interface quality, performance, and maintainability.
-
-## Summary: Top 10 Cost-Effective Improvements
-
-| # | Improvement | Priority | Impact | Effort |
-|---|---|---|---|---|
-| 1 | Fix French hardcoded strings | Critical | High | Very Low |
-| 2 | Refactor `App.tsx` & implement Code Splitting | Critical | High | Low |
-| 3 | Resolve Spreadsheet Grid mobile overflow | Critical | High | Low |
-| 4 | Standardize Toast notifications | High | Medium | Low |
-| 5 | Replace `window.confirm` with custom Modal | High | High | Medium |
-| 6 | Add semantic ARIA roles to Navigation | High | High | Low |
-| 7 | Implement Searchable Combobox in Quote Generator | High | High | Medium |
-| 8 | Memoize Spreadsheet Cells for performance | Medium | Medium | Medium |
-| 9 | Normalize CSS `!important` usage | Medium | Low | Medium |
-| 10| Add "Empty State" illustrations | Low | Medium | Low |
+This report summarizes the audit of the SheetFlow frontend, identifying key improvements across User Experience, User Interface, Performance, Accessibility, Code Quality, Design System, and Engagement.
 
 ---
 
-## 1. User Experience (UX)
+## Critical Priority
 
-### Complicated User Journeys & Form Friction
-*   **Problem**: The Quote Generator requires a two-step process to select a customer or product (search input + select dropdown).
-*   **Impact**: Increases the time to create a quote and creates unnecessary friction.
-*   **Solution**: Implement a unified **Searchable Combobox** component.
-*   **Effort**: Medium
+### 1. Bundle Size & Initial Load (Performance)
+*   **Problem:** All main feature components (`Dashboard`, `SpreadsheetGrid`, `QuoteGenerator`) are imported eagerly in `App.tsx`, leading to a larger initial JS bundle than necessary.
+*   **Impact:** Slower "Time to Interactive" (TTI) for users, especially on mobile or slow connections.
+*   **Solution:** Implement route-based or tab-based code splitting using `React.lazy` and `Suspense`.
+*   **Estimated Effort:** Low (1-2 hours)
 
-### Lack of User Feedback
-*   **Problem**: Critical actions like deleting a quote or changing inventory status rely on native browser `confirm()` dialogs.
-*   **Impact**: These dialogs are jarring and don't match the premium aesthetic of the app.
-*   **Solution**: Replace with a custom, design-system-compliant **Confirmation Modal**.
-*   **Effort**: Medium
-
----
-
-## 2. User Interface (UI)
-
-### Visual Consistency & Mixed Languages
-*   **Problem**: Hardcoded French strings (e.g., "Succès", "Enregistré !") appear in an otherwise English interface.
-*   **Impact**: Unprofessional and confusing for international users.
-*   **Solution**: Standardize all UI strings to English.
-*   **Effort**: Low
-
-### Spacing & Hierarchy
-*   **Problem**: The "Dashboard" KPI cards have consistent spacing, but the "Recent Quotes" table can become crowded on smaller desktop viewports.
-*   **Impact**: Reduced readability and cluttered feel.
-*   **Solution**: Increase horizontal padding in table cells and use a "Compact Mode" toggle.
-*   **Effort**: Low
+### 2. Monolithic Component Architecture (Code Quality)
+*   **Problem:** `App.tsx` and `Dashboard.tsx` have grown significantly (380+ and 400+ lines respectively), containing multiple sub-components like `Navbar`, `StatusPill`, `DonutChart`, and `Toaster`.
+*   **Impact:** Difficult to maintain, test, and reuse components. High risk of regressions during refactoring.
+*   **Solution:** Extract sub-components into a dedicated `components/` directory.
+*   **Estimated Effort:** Medium (4-6 hours)
 
 ---
 
-## 3. Frontend Performance
+## High Priority
 
-### Initial Loading Time & Bundle Size
-*   **Problem**: `App.tsx` loads all main components (`Dashboard`, `SpreadsheetGrid`, `QuoteGenerator`) upfront.
-*   **Impact**: Larger initial JavaScript bundle and slower "Time to Interactive."
-*   **Solution**: Implement **Route-level Code Splitting** using `React.lazy` and `Suspense`.
-*   **Effort**: Low
+### 3. Accessible Interactive Elements (Accessibility)
+*   **Problem:** Custom dropdowns (e.g., `StatusPill`, `ProfileDropdown`) and spreadsheet cells lack proper ARIA attributes (`aria-expanded`, `aria-haspopup`, `aria-selected`).
+*   **Impact:** Poor experience for users relying on screen readers; non-compliance with WCAG standards.
+*   **Solution:** Implement ARIA roles and states; ensure keyboard navigation (Tab/Space/Enter) is fully supported in all custom UI elements.
+*   **Estimated Effort:** Medium (4 hours)
 
-### Unnecessary Re-renders
-*   **Problem**: The `SpreadsheetGrid` re-renders frequently during cell editing.
-*   **Impact**: Noticeable input lag in sheets with large datasets (100+ rows).
-*   **Solution**: Extract cells into `React.memo` components to isolate updates.
-*   **Effort**: Medium
-
----
-
-## 4. Accessibility (A11y)
-
-### Keyboard Navigation & Semantics
-*   **Problem**: Navigation tabs and dropdowns lack `role="tablist"`, `aria-selected`, and proper keyboard focus management.
-*   **Impact**: The application is difficult or impossible to navigate for screen reader users.
-*   **Solution**: Implement ARIA roles and ensure all interactive elements are reachable via Tab.
-*   **Effort**: Medium
+### 4. Language Inconsistency (Design System)
+*   **Problem:** Toast notifications use "Succès" (French) while the entire application interface is in English.
+*   **Impact:** Unprofessional and confusing user experience.
+*   **Solution:** Update `App.tsx` toast logic to use "Success".
+*   **Estimated Effort:** Low (15 minutes)
 
 ---
 
-## 5. Code Quality & Maintainability
+## Medium Priority
 
-### "God Component" Technical Debt
-*   **Problem**: `App.tsx` is over 300 lines long and handles auth, theme, navigation, toasts, and modals.
-*   **Impact**: High complexity and difficult to test or maintain.
-*   **Solution**: Decompose `App.tsx` into smaller, focused components (e.g., `Navbar`, `Toaster`, `ProfileDropdown`).
-*   **Effort**: High
+### 5. Spreadsheet Grid Responsiveness (Mobile)
+*   **Problem:** The `SpreadsheetGrid` uses a hardcoded `min-w-[800px]` which forces horizontal scrolling on mobile devices without a container that handles it gracefully.
+*   **Impact:** Friction in mobile usage; users may struggle to navigate large data sets on small screens.
+*   **Solution:** Implement a responsive wrapper with `overflow-x-auto` and consider a "card view" for mobile or pinned columns.
+*   **Estimated Effort:** Medium (3-5 hours)
 
----
-
-## 6. Design System Consistency
-
-### State Consistency
-*   **Problem**: Success states for "Save" actions are inconsistent between the `SpreadsheetGrid` (spinner + highlight) and `QuoteGenerator` (morphing button).
-*   **Impact**: Inconsistent user mental model for action confirmation.
-*   **Solution**: Create a shared `StatusIndicator` pattern for asynchronous actions.
-*   **Effort**: Medium
+### 6. Formula Engine UI Feedback (UX)
+*   **Problem:** While formulas are supported (e.g., `=SUM(A1:B2)`), there is no UI helper or autocomplete for functions/cell references.
+*   **Impact:** Steep learning curve; prone to user error when entering complex formulas.
+*   **Solution:** Add a formula bar or an autocomplete dropdown when a cell starts with `=`.
+*   **Estimated Effort:** High (8-12 hours)
 
 ---
 
-## 7. Mobile and Responsive Design
+## Low Priority
 
-### Overflows
-*   **Problem**: `SpreadsheetGrid.tsx` has a hardcoded `min-w-[800px]`.
-*   **Impact**: Broken layout on mobile devices where the horizontal scrollbar appears on the entire page instead of just the grid.
-*   **Solution**: Replace the hardcoded minimum width with a `max-w-full overflow-x-auto` container.
-*   **Effort**: Low
+### 7. CSS Maintenance & !important Overrides (UI/Maintainability)
+*   **Problem:** `index.css` contains several `!important` overrides for light/dark mode transitions.
+*   **Impact:** Difficulty in overriding styles in the future; potential for CSS specificity wars.
+*   **Solution:** Refactor Tailwind configuration to use native dark mode classes or CSS variables more effectively without `!important`.
+*   **Estimated Effort:** Low (2 hours)
 
 ---
 
-## 8. Conversion and Engagement
+## Mandatory Analysis Details
 
-### Visibility of Information
-*   **Problem**: The "Formula Engine" support is buried in a subtitle.
-*   **Impact**: Users may miss one of the most powerful features of the application.
-*   **Solution**: Add a visual "fx" indicator or a help tooltip near the spreadsheet cells.
-*   **Effort**: Medium
+### 1. User Experience (UX)
+- **Friction:** Double-click to edit in `SpreadsheetGrid` is standard but could be clarified for new users with a "Help" tooltip.
+- **Feedback:** "Success" messages are good but some actions (like bulk import) could benefit from a progress bar.
+
+### 2. User Interface (UI)
+- **Consistency:** Glassmorphism is consistently applied.
+- **Alignment:** KPI cards are well-aligned. Status pills in the table provide good visual hierarchy.
+
+### 3. Frontend Performance
+- **Re-renders:** `SpreadsheetGrid` uses `React.memo` effectively but the store update triggers a re-render of the whole grid; fine for current sizes but may need optimization for 1000+ rows.
+
+### 4. Accessibility
+- **Screen Readers:** `select-none` on cells prevents text selection which can be annoying for users and confusing for some assistive technologies.
+
+### 5. Code Quality
+- **Technical Debt:** `App.tsx` handles auth, theme, navigation, and global UI (Modals/Toasts). It should be a coordinator, not an implementation container.
+
+### 6. Design System
+- **Button Variants:** Button styles are mostly consistent, but the "Danger" variant (Rose) should be standardized into a `Button` component.
+
+### 7. Mobile and Responsive
+- **Overflows:** Horizontal overflow on `SpreadsheetGrid` is the main issue.
+
+### 8. Conversion and Engagement
+- **Opportunity:** The "Low Stock" watchlist is a great engagement driver. Adding a "Quick Quote" button directly from a stock alert could increase conversions.
+
+---
+
+## Top 10 Cost-Effective Improvements
+
+1.  **Code Splitting:** Implement `React.lazy` for main tabs in `App.tsx`.
+2.  **Component Extraction:** Move `Navbar`, `Toaster`, `SettingsModal`, `StatusPill`, and `DonutChart` to separate files.
+3.  **Fix "Succès" String:** Standardize language to English.
+4.  **ARIA Attributes:** Add basic ARIA labels to navigation and action buttons.
+5.  **Keyboard Nav:** Ensure `Enter` and `Esc` work consistently across all modals and dropdowns.
+6.  **Responsive Table:** Wrap `SpreadsheetGrid` in a more robust responsive container.
+7.  **Zustand Slices:** (Already implemented partially) Continue refining store slices to avoid unnecessary re-renders.
+8.  **Loading States:** Ensure `SkeletonLoader` is used consistently during all data fetching transitions.
+9.  **Standardize Tooltips:** Add tooltips for icon-only buttons (Edit, Delete, Duplicate).
+10. **Refactor index.css:** Remove `!important` tags and rely on Tailwind's theme system.

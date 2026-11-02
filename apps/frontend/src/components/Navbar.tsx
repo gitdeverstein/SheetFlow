@@ -1,47 +1,47 @@
+import { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, Users, Package, FilePlus, User, Settings, Sun, Moon, LogOut } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
-
-interface UserInfo {
-  id: string;
-  name: string;
-  email: string;
-}
+import { useSheetStore } from '../store/sheetStore.js';
+import { logout as apiLogout } from '../store/api.js';
+import type { UserInfo } from '../App.js';
 
 interface NavbarProps {
-  activeTab: string;
-  setActiveTab: (tab: 'crm' | 'inventory' | 'quotes' | 'dashboard') => void;
   user: UserInfo | null;
+  setUser: (user: UserInfo | null) => void;
+  setIsLoggedIn: (isLoggedIn: boolean) => void;
+  isDarkMode: boolean;
+  onToggleTheme: () => void;
+  setSettingsOpen: (open: boolean) => void;
   profileOpen: boolean;
   setProfileOpen: (open: boolean) => void;
-  toggleTheme: () => void;
-  isDarkMode: boolean;
-  setSettingsOpen: (open: boolean) => void;
-  onLogout: () => Promise<void>;
-  dropdownRef: React.RefObject<HTMLDivElement | null>;
 }
 
-const TABS: { id: 'dashboard' | 'crm' | 'inventory' | 'quotes'; label: string; icon: LucideIcon }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'crm', label: 'CRM Sheets', icon: Users },
-  { id: 'inventory', label: 'Inventory', icon: Package },
-  { id: 'quotes', label: 'Create Quote', icon: FilePlus },
-];
-
 export default function Navbar({
-  activeTab,
-  setActiveTab,
   user,
-  profileOpen,
-  setProfileOpen,
-  toggleTheme,
+  setUser,
+  setIsLoggedIn,
   isDarkMode,
+  onToggleTheme,
   setSettingsOpen,
-  onLogout,
-  dropdownRef,
+  profileOpen,
+  setProfileOpen
 }: NavbarProps) {
+  const { activeTab, setActiveTab, addToast } = useSheetStore();
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [profileOpen, setProfileOpen]);
+
   return (
-    <nav className="glass-panel border-b border-slate-800/80 sticky top-0 z-40" role="navigation">
+    <nav className="glass-panel border-b border-slate-800/80 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-3">
@@ -54,17 +54,21 @@ export default function Navbar({
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="flex space-x-1" role="tablist" aria-label="Main navigation">
-              {TABS.map((tab) => {
+            <div className="flex space-x-1" role="tablist">
+              {[
+                { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+                { id: 'crm', label: 'CRM Sheets', icon: Users },
+                { id: 'inventory', label: 'Inventory', icon: Package },
+                { id: 'quotes', label: 'Create Quote', icon: FilePlus },
+              ].map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
                     role="tab"
                     aria-selected={isActive}
-                    aria-controls={`${tab.id}-panel`}
+                    onClick={() => setActiveTab(tab.id as any)}
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 relative group
                       ${isActive
                         ? 'text-brand-400'
@@ -120,8 +124,8 @@ export default function Navbar({
 
                     <div className="p-1.5 space-y-0.5">
                       <button
-                        onClick={() => { setSettingsOpen(true); setProfileOpen(false); }}
                         role="menuitem"
+                        onClick={() => { setSettingsOpen(true); setProfileOpen(false); }}
                         className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-800/50 rounded-xl transition-all text-left cursor-pointer"
                       >
                         <Settings size={16} />
@@ -129,8 +133,8 @@ export default function Navbar({
                       </button>
 
                       <button
-                        onClick={toggleTheme}
                         role="menuitem"
+                        onClick={onToggleTheme}
                         className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-800/50 rounded-xl transition-all text-left cursor-pointer"
                       >
                         {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
@@ -140,8 +144,14 @@ export default function Navbar({
                       <div className="border-t border-slate-800/60 my-1.5" />
 
                       <button
-                        onClick={onLogout}
                         role="menuitem"
+                        onClick={async () => {
+                          await apiLogout();
+                          setIsLoggedIn(false);
+                          setUser(null);
+                          setProfileOpen(false);
+                          addToast('Successfully logged out!', 'info');
+                        }}
                         className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-rose-400 hover:text-rose-350 hover:bg-rose-500/10 rounded-xl transition-all text-left cursor-pointer font-semibold"
                       >
                         <LogOut size={16} />

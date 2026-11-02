@@ -8,14 +8,45 @@ import { motion } from 'framer-motion';
 import { QUOTE_STATUS_TRANSITIONS } from '@sheetflow/shared';
 import AnimatedSection from './AnimatedSection.js';
 import SkeletonLoader from './SkeletonLoader.js';
-import Modal from './Modal.js';
+import StatusPill from './StatusPill.js';
+import DonutChart from './DonutChart.js';
 
-const KPI_STYLES: Record<string, { bg: string; text: string }> = {
-  emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-400' },
-  brand: { bg: 'bg-sky-500/10', text: 'text-sky-400' },
-  purple: { bg: 'bg-purple-500/10', text: 'text-purple-400' },
-  amber: { bg: 'bg-amber-500/10', text: 'text-amber-400' },
-};
+// ── Overflow menu ─────────────────────────────────────────────────────────────
+function OverflowMenu({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+  return (
+    <div ref={ref} className="relative sm:hidden">
+      <button onClick={() => setOpen(o => !o)} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
+        <MoreHorizontal size={16} />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div initial={{ opacity: 0, scale: 0.95, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -4 }}
+            className="absolute right-0 top-full mt-1 z-30 bg-slate-900 border border-slate-700 rounded-xl shadow-xl min-w-[140px] overflow-hidden"
+            onClick={() => setOpen(false)}>
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+function ExpiryBadge({ validUntil, status }: { validUntil?: string | null; status: string }) {
+  if (!validUntil || status === 'Accepted' || status === 'Rejected') return null;
+  const expired = new Date(validUntil) < new Date();
+  if (!expired) return null;
+  return (
+    <span className="ml-1 px-1.5 py-0.5 text-[10px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/30 rounded">
+      Expired
+    </span>
+  );
+}
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
 export default function Dashboard() {

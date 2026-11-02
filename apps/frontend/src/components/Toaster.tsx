@@ -1,23 +1,14 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import { useSheetStore, type ToastMessage } from '../store/sheetStore.js';
 
-interface Toast {
-  id: string;
-  type: 'success' | 'error' | 'info';
-  text: string;
-  undoAction?: () => void;
-}
+export default function Toaster() {
+  const { toasts, removeToast } = useSheetStore();
 
-interface ToasterProps {
-  toasts: Toast[];
-  removeToast: (id: string) => void;
-}
-
-export default function Toaster({ toasts, removeToast }: ToasterProps) {
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full" aria-live="polite">
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full">
       <AnimatePresence>
-        {toasts.map((toast) => (
+        {toasts.map((toast: ToastMessage) => (
           <motion.div
             key={toast.id}
             initial={{ opacity: 0, x: 50, scale: 0.9 }}
@@ -32,7 +23,7 @@ export default function Toaster({ toasts, removeToast }: ToasterProps) {
           >
             <div className="flex-1">
               <p className="text-xs font-semibold text-slate-400 capitalize">
-                {toast.type}
+                {toast.type === 'success' ? 'Success' : toast.type}
               </p>
               <p className="text-sm text-slate-200 mt-0.5">{toast.text}</p>
               {toast.undoAction && (
@@ -47,7 +38,6 @@ export default function Toaster({ toasts, removeToast }: ToasterProps) {
             <button
               onClick={() => removeToast(toast.id)}
               className="text-slate-500 hover:text-slate-300 transition-colors"
-              aria-label="Close notification"
             >
               <X size={14} />
             </button>
