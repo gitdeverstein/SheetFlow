@@ -193,7 +193,8 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
             {tab === 'crm' ? 'Customer Directory' : 'Inventory Manager'}
           </h1>
           <p className="text-slate-400 mt-2">
-            Double-click cells to edit. Starting with <code className="text-xs text-brand-400 font-mono">=</code> evaluates formulas.
+            Double-click cells to edit. Starting with <code className="text-xs text-brand-400">=</code> evaluates
+            formulas.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -221,8 +222,9 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
               <motion.button
                 onClick={() => csvInputRef.current?.click()}
                 disabled={importing}
-                whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-medium rounded-xl transition-all disabled:opacity-50 cursor-pointer"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-medium rounded-xl transition-all disabled:opacity-50"
                 title="Import CSV (columns: sku, name, stock, alertThreshold, price)"
                 aria-label="Import CSV File"
               >
@@ -232,8 +234,9 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
           )}
           <motion.button
             onClick={() => addNewRow(tab)}
-            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-xl transition-all shadow-lg shadow-brand-500/20 cursor-pointer"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-xl transition-all shadow-lg shadow-brand-500/20"
           >
             <Plus size={18} />
             <span>Add New Row</span>
@@ -241,29 +244,57 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
         </div>
       </div>
 
-      {/* Custom Reusable Delete Confirm Modal */}
-      <ConfirmModal
-        isOpen={deleteConfirmId !== null}
-        title="Delete Record"
-        message="Are you sure you want to delete this record? You can undo this action within 4 seconds via the notification toast."
-        variant="danger"
-        confirmText="Delete"
-        onConfirm={() => {
-          if (deleteConfirmId) {
-            deleteSpreadsheetRow(tab, deleteConfirmId);
-            setDeleteConfirmId(null);
-          }
-        }}
-        onCancel={() => setDeleteConfirmId(null)}
-      />
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {deleteConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm"
+            onClick={() => setDeleteConfirm(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="glass-panel p-6 rounded-2xl max-w-sm w-full mx-4 border border-slate-800 shadow-2xl"
+            >
+              <h3 className="text-lg font-semibold text-white">Delete Record</h3>
+              <p className="text-sm text-slate-400 mt-2">This record will be deleted. You can undo within 4 seconds.</p>
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white bg-slate-900 border border-slate-800 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    const id = deleteConfirm;
+                    setDeleteConfirm(null);
+                    deleteSpreadsheetRow(tab, id);
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Spreadsheet Container */}
       <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
         <div className="overflow-x-auto">
           <div className="min-w-full sm:min-w-[640px] lg:min-w-0">
             {/* Column Headers */}
-            <div className="grid border-b border-slate-800 bg-slate-900/40"
-              style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(120px, 1fr)) 100px` }}>
+            <div
+              className="grid border-b border-slate-800 bg-slate-900/40"
+              style={{ gridTemplateColumns: `repeat(${columns.length}, 1fr) 100px` }}
+            >
               {columns.map((col) => (
                 <div
                   key={col.id}
@@ -272,12 +303,13 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                   <span className="truncate">{col.name}</span>
                   <button
                     onClick={() => setSort(col.id)}
-                    aria-label={`Sort by ${col.name}`}
-                    className="p-1 hover:bg-slate-800 text-slate-500 hover:text-slate-200 rounded transition-colors cursor-pointer"
+                    className="p-1 hover:bg-slate-800 text-slate-500 hover:text-slate-200 rounded transition-colors"
                   >
-                    {sort?.column === col.id
-                      ? <span className="text-brand-400 text-xs font-bold">{sort.direction === 'asc' ? '▲' : '▼'}</span>
-                      : <ArrowUpDown size={13} />}
+                    {sort?.column === col.id ? (
+                      <span className="text-brand-400 text-xs font-bold">{sort.direction === 'asc' ? '▲' : '▼'}</span>
+                    ) : (
+                      <ArrowUpDown size={13} />
+                    )}
                   </button>
                 </div>
               ))}
@@ -285,8 +317,10 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
             </div>
 
             {/* Filter Row */}
-            <div className="grid border-b border-slate-800 bg-slate-950/20"
-              style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(120px, 1fr)) 100px` }}>
+            <div
+              className="grid border-b border-slate-800 bg-slate-950/20"
+              style={{ gridTemplateColumns: `repeat(${columns.length}, 1fr) 100px` }}
+            >
               {columns.map((col) => (
                 <div key={col.id} className="p-2 border-r border-slate-800/50 relative flex items-center">
                   <Search size={12} className="absolute left-4 text-slate-600" />
@@ -343,7 +377,10 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                       : 'Try clearing the filter fields above.'}
                   </p>
                   {rows.length === 0 && (
-                    <button onClick={() => addNewRow(tab)} className="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-xl transition-all cursor-pointer">
+                    <button
+                      onClick={() => addNewRow(tab)}
+                      className="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-xl transition-all"
+                    >
                       <Plus size={15} /> Add New Row
                     </button>
                   )}
@@ -366,7 +403,12 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                         <div
                           key={row?.id || index}
                           className="grid hover:bg-slate-900/20 transition-colors group border-b border-slate-800/60"
-                          style={{ ...style, gridTemplateColumns: `repeat(${columns.length}, 1fr) 100px` } as React.CSSProperties}
+                          style={
+                            {
+                              ...style,
+                              gridTemplateColumns: `repeat(${columns.length}, 1fr) 100px`,
+                            } as React.CSSProperties
+                          }
                           tabIndex={0}
                           aria-label={`Row ${index + 1} of ${paginatedRows.length}`}
                           onKeyDown={(e) => {
@@ -507,9 +549,11 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
           <span>Rows per page:</span>
           <select
             value={pageSize}
-            onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
-            aria-label="Select rows per page"
-            className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-brand-500 cursor-pointer"
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setPage(0);
+            }}
+            className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-brand-500"
           >
             <option value={25}>25</option>
             <option value={50}>50</option>

@@ -19,19 +19,22 @@ export const users = pgTable(
   }),
 );
 
-// ── Verification Tokens Table ───────────────────────────────────────────────
-export const verificationTokens = pgTable('verification_tokens', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  token: text('token').notNull().unique(),
-  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-}, (table) => ({
-  idx_vt_user_id: index('idx_vt_user_id').on(table.userId),
-  idx_vt_token: index('idx_vt_token').on(table.token),
-}));
+// ── Sessions Table ───────────────────────────────────────────────────────────
+export const sessions = pgTable(
+  'sessions',
+  {
+    id: text('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => ({
+    idx_sessions_user_id: index('idx_sessions_user_id').on(table.userId),
+    idx_sessions_expires_at: index('idx_sessions_expires_at').on(table.expiresAt),
+  }),
+);
 
 // ── Sessions Table ───────────────────────────────────────────────────────────
 export const sessions = pgTable(

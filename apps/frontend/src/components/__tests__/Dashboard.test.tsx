@@ -325,9 +325,7 @@ describe('Dashboard', () => {
 
   it('shows healthy message when all stocks are sufficient', () => {
     mockAllHooks({
-      inventory: [
-        { id: 'i1', sku: 'WGT-001', name: 'Widget', stock: 10, alertThreshold: 5, price: 19.99 },
-      ],
+      inventory: [{ id: 'i1', sku: 'WIDGET', name: 'Widget', stock: 10, alertThreshold: 5, price: 19.99 }],
     });
     render(<Dashboard />);
     expect(screen.getByText('All item stocks are healthy!')).toBeInTheDocument();
