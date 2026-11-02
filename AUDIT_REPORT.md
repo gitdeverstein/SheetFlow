@@ -1,86 +1,131 @@
-# SheetFlow Frontend Audit Report
+# Frontend Audit Report - SheetFlow
 
-This report summarizes the analysis of the SheetFlow frontend, identifying key areas for improvement in UX, UI, Performance, Accessibility, Code Quality, and Conversion.
-
----
-
-## 1. Critical Priority
-
-### Problem: Massive Main Bundle due to Heavy Export Libraries
-**Impact:** `exceljs` and `jspdf` are imported directly in `exportUtils.ts`, which is subsequently imported by the central `sheetStore.ts`. This forces these heavy libraries (several MBs) into the initial JavaScript bundle, significantly increasing Time to Interactive (TTI).
-**Solution:** Use dynamic imports (`import()`) within `exportUtils.ts` to lazy-load these libraries only when the user clicks an export button.
-**Estimated Effort:** Low (1-2 hours)
-
-```typescript
-// Proposed fix in apps/frontend/src/utils/exportUtils.ts
-export async function exportQuotePdf(quote: ExportFullQuote) {
-  const [jsPDF, autoTable] = await Promise.all([
-    import('jspdf').then(m => m.default),
-    import('jspdf-autotable').then(m => m.default)
-  ]);
-  const doc = new jsPDF();
-  // ... rest of the logic
-}
-```
-
-### Problem: Reliance on Native `window.confirm`
-**Impact:** Deleting records or changing quote statuses triggers a blocking, non-stylable browser dialog. This breaks the "premium" feel of the application and provides a poor, inconsistent user experience across browsers.
-**Solution:** Implement a reusable `ConfirmationModal` component using Framer Motion to match the existing UI aesthetic.
-**Estimated Effort:** Medium (4-6 hours)
+## Executive Summary
+This audit provides a comprehensive analysis of the SheetFlow frontend, identifying key areas for improvement across UX, UI, performance, accessibility, and code quality. The application has a strong foundation with a modern tech stack (React 19, Tailwind 4, Framer Motion), but suffers from technical debt in state management, bundle size, and accessibility.
 
 ---
 
-## 2. High Priority
+## Critical Priority
 
-### Problem: Missing Code Splitting for Major Features
-**Impact:** All features (Dashboard, CRM, Inventory, Quote Generator) are loaded at once. As the application grows, this will lead to performance degradation.
-**Solution:** Implement `React.lazy` and `Suspense` for the main tab components in `App.tsx`.
-**Estimated Effort:** Low (2 hours)
+### 1. Bundle Size & Code Splitting
+*   **Problem:** Heavy libraries like `exceljs` and `jspdf` are imported directly in `exportUtils.ts`, which is then likely pulled into the main bundle. Additionally, all main views (Dashboard, Spreadsheet, QuoteGenerator) are in the main bundle.
+*   **Impact:** Slow initial load time, especially on mobile or slower connections.
+*   **Solution:**
+    *   Implement route-level code splitting using `React.lazy`.
+    *   Use dynamic imports for heavy utilities.
+*   **Code Example:**
+    ```typescript
+    // In exportUtils.ts
+    export async function exportQuotePdf(quote: ExportFullQuote) {
+      const { default: jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
+      // ... rest of the logic
+    }
+    ```
+*   **Estimated Effort:** Low (2-4 hours)
 
-### Problem: Accessibility (ARIA & Focus Management)
-**Impact:** Components like `StatusPill`, `OverflowMenu`, and the `SpreadsheetGrid` lack necessary ARIA attributes (`aria-expanded`, `aria-haspopup`, `role="grid"`). Keyboard navigation is partially implemented but inconsistent in dropdowns.
-**Solution:** Audit and add ARIA attributes; implement a `useFocusTrap` hook for modals and dropdowns.
-**Estimated Effort:** High (12-16 hours)
-
----
-
-## 3. Medium Priority
-
-### Problem: High Friction in Quote Item Selection
-**Impact:** Users must search for a product, select it from a dropdown, and then manually adjust quantity for every line item. This is slow for large quotes.
-**Solution:** Add a "Quick Add" product drawer or a searchable combobox that allows adding multiple items rapidly.
-**Estimated Effort:** High (10-14 hours)
-
-### Problem: Lack of Centralized Component Library
-**Impact:** UI elements like buttons and inputs are redefined with Tailwind classes throughout the codebase. This makes global style changes (e.g., changing border radius or brand color) difficult and error-prone.
-**Solution:** Extract core UI components (Button, Input, Card, Modal) into a `components/ui` directory.
-**Estimated Effort:** Medium (8-12 hours)
-
----
-
-## 4. Low Priority
-
-### Problem: CSS Technical Debt (`!important` overrides)
-**Impact:** `index.css` contains several `!important` overrides to handle light/dark mode transitions. This indicates a conflict between Tailwind's utility-first approach and manual CSS overrides.
-**Solution:** Refactor the theme logic to use Tailwind's `dark:` variant exclusively and remove manual overrides.
-**Estimated Effort:** Medium (6-8 hours)
-
-### Problem: Static KPI Cards
-**Impact:** Dashboard KPIs show totals but offer no interaction. Users naturally expect to click "Stock Alerts" to see the filtered list of low-stock items.
-**Solution:** Add click handlers to KPI cards that navigate to the relevant tab and apply a filter.
-**Estimated Effort:** Low (3 hours)
+### 2. God Component: App.tsx
+*   **Problem:** `App.tsx` manages authentication, theme, navigation, global state, and modal states.
+*   **Impact:** High cognitive load for developers, difficult to test, and poor separation of concerns.
+*   **Solution:** Refactor `App.tsx` into smaller providers and layout components. Move auth logic to a dedicated `AuthProvider`.
+*   **Estimated Effort:** Medium (1 day)
 
 ---
 
-## 10 Most Cost-Effective Improvements
+## High Priority
 
-1.  **Dynamic Imports for Exports:** Immediate 50%+ reduction in initial JS bundle size.
-2.  **Route-level Lazy Loading:** Faster initial paint and better resource management.
-3.  **Refactor `App.tsx`:** Split the "God Component" into `Navbar`, `Sidebar`, and `MainContent` for better maintainability.
-4.  **Reusable `Modal` Component:** Replace all `window.confirm` and `alert` calls for a consistent UX.
-5.  **KPI Drill-down:** Increases engagement and utility of the Dashboard with minimal code change.
-6.  **Zustand Slice Optimization:** Ensure components only subscribe to the state they need to prevent unnecessary re-renders.
-7.  **Form Validation Refactor:** Use a library like `react-hook-form` or `zod` on the frontend to provide better real-time feedback in `QuoteGenerator`.
-8.  **Searchable Comboboxes:** Replace standard `<select>` in the Quote Generator with a searchable component for better UX with large datasets.
-9.  **Standardized Toast Notifications:** Ensure all async actions (Save, Delete, Update) provide clear success/error feedback.
-10. **Focus Visible Styles:** Improve accessibility by ensuring all interactive elements have a clear, high-contrast focus ring.
+### 3. Accessibility (ARIA & Roles)
+*   **Problem:** Many interactive elements (especially icon buttons in `Dashboard.tsx` and `SpreadsheetGrid.tsx`) lack descriptive labels. The profile dropdown and custom menus don't follow ARIA patterns.
+*   **Impact:** Users with screen readers cannot navigate the application effectively.
+*   **Solution:**
+    *   Add `aria-label` to all icon-only buttons.
+    *   Implement proper ARIA attributes for dropdowns (`aria-expanded`, `aria-haspopup`, `role="menu"`).
+*   **Code Example:**
+    ```tsx
+    <button
+      onClick={() => setEditingQuote(quote.id)}
+      aria-label={`Edit quote ${quote.quoteNumber}`}
+      className="..."
+    >
+      <Edit3 size={15} />
+    </button>
+    ```
+*   **Estimated Effort:** Medium (4-6 hours)
+
+### 4. Form Friction in Quote Generator
+*   **Problem:** Users have to search and select products/customers through standard HTML selects which can be slow with large datasets. Manual entry of prices/quantities lacks validation feedback until submission.
+*   **Impact:** Poor user experience, increased risk of data entry errors.
+*   **Solution:** Replace standard selects with a searchable Combobox/Autocomplete component (e.g., using Headless UI or a custom implementation). Add inline validation.
+*   **Estimated Effort:** Medium (6-8 hours)
+
+---
+
+## Medium Priority
+
+### 5. Inconsistent State Management for Modals
+*   **Problem:** Modal states (Settings, Profile) are managed via local state in `App.tsx` but could benefit from a more unified approach, especially if more modals are added.
+*   **Impact:** Difficulty in managing deep links to modals or opening modals from nested components.
+*   **Solution:** Move global modal state to Zustand.
+*   **Estimated Effort:** Low (2 hours)
+
+### 6. CSS Maintenance (Hacky Light Mode)
+*   **Problem:** `index.css` uses `!important` and specific selector exclusions to handle light mode color overrides.
+    ```css
+    .light :is(.text-white, .hover\:text-white:hover):not(button)... {
+      color: #020617 !important;
+    }
+    ```
+*   **Impact:** Extremely difficult to maintain and leads to "CSS specificity wars".
+*   **Solution:** Use Tailwind 4's native dark mode support or CSS variables for all semantic colors.
+*   **Estimated Effort:** Medium (4-6 hours)
+
+### 7. Missing Error Handling in Spreadsheet Grid
+*   **Problem:** Formula errors are displayed in-cell but there is no global way to see all errors in a sheet. Some API failures during cell blur don't have enough feedback.
+*   **Impact:** Users might miss incorrect calculations.
+*   **Solution:** Add a "Validation Summary" or "Error List" panel for sheets.
+*   **Estimated Effort:** Medium (4-6 hours)
+
+---
+
+## Low Priority
+
+### 8. Spreadsheet Mobile Adaptability
+*   **Problem:** The `SpreadsheetGrid` uses a horizontal scroll with a minimum width, which is functional but not ideal for mobile data entry.
+*   **Impact:** Difficult to use on small screens.
+*   **Solution:** Implement a "Card View" for mobile or a dedicated mobile editing modal.
+*   **Estimated Effort:** High (1-2 days)
+
+### 9. Lack of "Empty States" Visuals
+*   **Problem:** Empty states are purely text-based and look a bit "bare".
+*   **Impact:** Lower perceived quality of the application.
+*   **Solution:** Add illustrations or more engaging empty state components.
+*   **Estimated Effort:** Low (2-3 hours)
+
+### 10. Performance: Excessive Re-renders in Grid
+*   **Problem:** Although using `react-window`, changes to one cell might trigger more re-renders than necessary if the store state is not sliced optimally.
+*   **Impact:** Minor lag on low-end devices with large sheets.
+*   **Solution:** Memoize individual cell components more aggressively.
+*   **Estimated Effort:** Medium (4 hours)
+
+---
+
+## Top 10 Most Cost-Effective Improvements
+
+1.  **Dynamic Imports for Exports:** Huge performance win for very little effort.
+2.  **Add aria-labels:** Significant accessibility improvement for very little effort.
+3.  **Route-level Code Splitting:** Improves initial load and TTI (Time to Interactive).
+4.  **Refactor index.css Light Mode:** Improves developer experience and reduces styling bugs.
+5.  **Searchable Combobox for Quote Generator:** Improves UX significantly for high-volume users.
+6.  **Zustand Modal Store:** Cleaner `App.tsx` and better control over UI state.
+7.  **Inline Validation in Forms:** Reduces submission errors and improves user feedback.
+8.  **Loading States for Action Buttons:** Add spinners to all buttons that trigger API calls (already started in some places).
+9.  **Keyboard Shortcuts for Grid:** (e.g., `Ctrl+S` to save) enhances "power user" experience.
+10. **Standardized Empty States:** Improves UI polish across all tabs.
+
+---
+
+## Technical Debt Report
+*   **App.tsx Complexity:** Currently ~400 lines and handles too many responsibilities.
+*   **Direct API calls in components:** Some components still have `fetch` calls instead of using custom hooks or the store.
+*   **Formula Engine Isolation:** The formula engine is quite complex and lacks thorough unit tests for edge cases (e.g., circular dependencies).
+*   **Tailwind 4 Migration:** Some legacy styles might be conflicting with the new Tailwind 4 engine.
