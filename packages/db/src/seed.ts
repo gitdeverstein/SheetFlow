@@ -75,23 +75,15 @@ async function main() {
     { quoteId: q4.id, productId: p5.id, name: p5.name, quantity: 10, unitPrice: p5.price },
   ]);
 
-    // Deduct stock dynamically for accepted quotes (QT-2026-001)
-    const quote1Items = [
-      { productId: p1.id, quantity: 2 },
-      { productId: p5.id, quantity: 1 },
-    ];
-    for (const item of quote1Items) {
-      await db.update(inventory)
-        .set({ stock: sql`${inventory.stock} - ${item.quantity}` })
-        .where(sql`${inventory.id} = ${item.productId}`);
-    }
-
-    console.log('Database seeded successfully!');
-    console.log(`  Admin user: admin@sheetflow.com / admin123!`);
-    console.log(`  Demo user:  john@sheetflow.com / demo1234!`);
-  } catch (error) {
-    console.error('Error seeding database:', error);
-    throw error;
+  // Deduct stock dynamically for accepted quotes (QT-2026-001)
+  const quote1Items = [
+    { productId: p1.id, quantity: 2 },
+    { productId: p5.id, quantity: 1 },
+  ];
+  for (const item of quote1Items) {
+    await db.update(inventory)
+      .set({ stock: sql`${inventory.stock} - ${item.quantity}` })
+      .where(sql`${inventory.id} = ${item.productId}`);
   }
 
   console.log('Database seeded successfully!');
@@ -100,9 +92,9 @@ async function main() {
 }
 
 main()
-  .catch((err) => {
-    console.error('Unhandled error in seed script:', err);
-    process.exitCode = 1;
+  .catch((error) => {
+    console.error('Error seeding database:', error);
+    process.exit(1);
   })
   .finally(async () => {
     await client.end();
