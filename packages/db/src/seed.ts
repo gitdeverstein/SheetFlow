@@ -27,27 +27,17 @@ async function main() {
     const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'admin123!';
     const demoPassword = process.env.SEED_DEMO_PASSWORD || 'demo1234!';
     const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
-    const [adminUser] = await db
-      .insert(users)
-      .values([
-        {
-          name: 'Admin',
-          email: 'admin@sheetflow.com',
-          passwordHash: adminPasswordHash,
-        },
-      ])
-      .returning();
+    await db.insert(users).values([{
+      name: 'Admin',
+      email: 'admin@sheetflow.com',
+      passwordHash: adminPasswordHash,
+    }]).returning();
 
-    const [demoUser] = await db
-      .insert(users)
-      .values([
-        {
-          name: 'John Doe',
-          email: 'john@sheetflow.com',
-          passwordHash: await bcrypt.hash(demoPassword, 12),
-        },
-      ])
-      .returning();
+    await db.insert(users).values([{
+      name: 'John Doe',
+      email: 'john@sheetflow.com',
+      passwordHash: await bcrypt.hash(demoPassword, 12),
+    }]).returning();
 
     console.log('Inserting customers...');
     const [c1, c2, c3, c4] = await db
@@ -89,53 +79,14 @@ async function main() {
       .returning();
 
     console.log('Inserting inventory...');
-    const [p1, p2, p3, p4, p5, p6] = await db
-      .insert(inventory)
-      .values([
-        {
-          sku: 'WGT-001',
-          name: 'Premium Widget (Gold)',
-          stock: 45,
-          alertThreshold: 10,
-          price: '149.99',
-        },
-        {
-          sku: 'WGT-002',
-          name: 'Premium Widget (Silver)',
-          stock: 120,
-          alertThreshold: 20,
-          price: '89.99',
-        },
-        {
-          sku: 'GDT-001',
-          name: 'Ergonomic Gadget (Standard)',
-          stock: 8,
-          alertThreshold: 15,
-          price: '249.50',
-        },
-        {
-          sku: 'GDT-002',
-          name: 'Ergonomic Gadget (Pro)',
-          stock: 3,
-          alertThreshold: 5,
-          price: '399.00',
-        },
-        {
-          sku: 'ACC-001',
-          name: 'USB-C Hub 7-in-1',
-          stock: 200,
-          alertThreshold: 30,
-          price: '34.99',
-        },
-        {
-          sku: 'ACC-002',
-          name: 'Wireless Charging Pad',
-          stock: 0,
-          alertThreshold: 25,
-          price: '29.99',
-        },
-      ])
-      .returning();
+    const [p1, p2, p3, p4, p5] = await db.insert(inventory).values([
+      { sku: 'WGT-001', name: 'Premium Widget (Gold)', stock: 45, alertThreshold: 10, price: '149.99' },
+      { sku: 'WGT-002', name: 'Premium Widget (Silver)', stock: 120, alertThreshold: 20, price: '89.99' },
+      { sku: 'GDT-001', name: 'Ergonomic Gadget (Standard)', stock: 8, alertThreshold: 15, price: '249.50' },
+      { sku: 'GDT-002', name: 'Ergonomic Gadget (Pro)', stock: 3, alertThreshold: 5, price: '399.00' },
+      { sku: 'ACC-001', name: 'USB-C Hub 7-in-1', stock: 200, alertThreshold: 30, price: '34.99' },
+      { sku: 'ACC-002', name: 'Wireless Charging Pad', stock: 0, alertThreshold: 25, price: '29.99' },
+    ]).returning();
 
     console.log('Inserting quotes...');
     const [q1, q2, q3, q4] = await db
