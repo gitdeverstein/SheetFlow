@@ -24,9 +24,6 @@ export default function SettingsModal({ isOpen, onClose, isDarkMode, onToggleThe
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="settings-title"
             className="glass-panel w-full max-w-md rounded-2xl shadow-2xl p-6 relative border border-slate-800/80 z-10"
           >
             <button
@@ -39,7 +36,7 @@ export default function SettingsModal({ isOpen, onClose, isDarkMode, onToggleThe
 
             <div className="flex items-center gap-2 mb-4">
               <Settings className="text-brand-500" size={22} />
-              <h2 id="settings-title" className="text-xl font-display font-semibold text-white">Application Settings</h2>
+              <h2 className="text-xl font-display font-semibold text-white">Application Settings</h2>
             </div>
 
             <div className="space-y-4 text-sm text-slate-300">

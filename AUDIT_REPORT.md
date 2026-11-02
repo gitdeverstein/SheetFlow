@@ -1,110 +1,90 @@
-# Frontend Audit Report - SheetFlow
+# Frontend Audit Report: SheetFlow
 
-This report provides a comprehensive analysis of the SheetFlow frontend, identifying critical issues and proposing prioritized improvements for UX, UI, Performance, Accessibility, and Code Quality.
+## Critical Priority
 
----
+### 1. Heavy Static Imports in Export Utilities
+*   **Problem:** `jspdf`, `jspdf-autotable`, and `exceljs` are statically imported at the top of `exportUtils.ts`.
+*   **Impact:** These libraries are large and bloat the initial JavaScript bundle, increasing Time to Interactive (TTI) even for users who never use the export features.
+*   **Solution:** Refactor `exportQuotePdf` and `exportQuoteExcel` to use dynamic `import()`.
+*   **Estimated Effort:** 30 minutes
 
-## 1. Critical Priority
+### 2. Broken Mobile Responsiveness in Grid
+*   **Problem:** `SpreadsheetGrid.tsx` contains a hardcoded `min-w-[800px]` on the table container.
+*   **Impact:** The application is unusable on mobile devices for its core features (CRM and Inventory management) due to horizontal overflow and lack of adaptive layout.
+*   **Solution:** Remove the hardcoded minimum width, implement responsive column visibility, or use a more flexible overflow strategy.
+*   **Estimated Effort:** 45 minutes
 
-### Problem: Performance Bottleneck - Heavy Static Imports
-**Impact:** Initial bundle size is significantly inflated by `exceljs` and `jspdf` (multi-MB libraries) being imported statically in `exportUtils.ts`. This leads to slow Time to Interactive (TTI), especially on mobile or slow connections.
-**Solution:** Refactor `exportUtils.ts` to use dynamic imports for these libraries.
-**Example:**
-```typescript
-// Before (Static)
-import jsPDF from 'jspdf';
-import ExcelJS from 'exceljs';
-
-// After (Dynamic)
-export async function exportQuotePdf(quote: ExportFullQuote) {
-  const { default: jsPDF } = await import('jspdf');
-  const { default: autoTable } = await import('jspdf-autotable');
-  // ... rest of logic
-}
-```
-**Estimated Effort:** Low (1-2 hours)
-
-### Problem: Documented Feature Missing - Guest Mode
-**Impact:** The README promises a "Mode invité sans authentification," but this is missing from `WelcomeScreen.tsx`. This causes immediate user drop-off for those wanting to try the app without registration.
-**Solution:** Implement the "Guest Mode" button and bypass logic in `WelcomeScreen.tsx`.
-**Estimated Effort:** Medium (4-6 hours)
-
-### Problem: Mobile Responsiveness Failure - Spreadsheet Overflow
-**Impact:** `SpreadsheetGrid.tsx` has a hardcoded `min-w-[800px]`, making it impossible to use on mobile devices without extreme horizontal scrolling and broken layouts.
-**Solution:** Replace the hardcoded minimum width with a responsive container.
-**Example:**
-```tsx
-// Before
-<div className="min-w-[800px]">
-
-// After
-<div className="min-w-full overflow-x-auto overflow-y-hidden">
-```
-**Estimated Effort:** Low (2-3 hours)
+### 3. Inconsistent Localization
+*   **Problem:** Success messages in `App.tsx` ("Succès") and `QuoteGenerator.tsx` ("Enregistré !") are in French, while the rest of the app is English.
+*   **Impact:** Poor user experience and unprofessional appearance.
+*   **Solution:** Standardize all UI strings to English.
+*   **Estimated Effort:** 10 minutes
 
 ---
 
-## 2. High Priority
+## High Priority
 
-### Problem: Accessibility Non-Compliance - Missing Labels and Roles
-**Impact:** Most icon-only buttons in the Dashboard and Spreadsheet Grid lack `aria-label`. Custom dropdowns and tabs lack ARIA roles.
-**Solution:** Add `aria-label` to all icon buttons and implement proper ARIA roles.
-**Example:**
-```tsx
-// Before
-<button onClick={onEdit}><Edit size={16} /></button>
+### 4. Monolithic `App.tsx`
+*   **Problem:** `App.tsx` handles authentication, theme management, navigation, main layout, notifications (Toaster), and modals.
+*   **Impact:** Poor code maintainability, difficult to test in isolation, and high risk of regressions when modifying unrelated features.
+*   **Solution:** Extract `Navbar`, `Toaster`, and `SettingsModal` into a dedicated `components/layout/` directory.
+*   **Estimated Effort:** 2 hours
 
-// After
-<button onClick={onEdit} aria-label="Edit Quote"><Edit size={16} /></button>
-```
-**Estimated Effort:** Medium (6-8 hours)
+### 5. Lack of Accessibility (ARIA)
+*   **Problem:** Numerous icon-only buttons (Edit, Delete, Duplicate, Export) lack `aria-label` attributes.
+*   **Impact:** Users relying on screen readers cannot understand the purpose of these actions.
+*   **Solution:** Add descriptive `aria-label` to all interactive elements that don't have visible text.
+*   **Estimated Effort:** 1 hour
 
-### Problem: Technical Debt - Monolithic App Component
-**Impact:** `App.tsx` handles authentication, navigation, theme, multiple modals, and notifications.
-**Solution:** Extract `Navbar`, `Toaster`, and `SettingsModal` into standalone components.
-**Estimated Effort:** Medium (8 hours)
-
----
-
-## 3. Medium Priority
-
-### Problem: UI Inconsistency - Native Confirm Dialogs
-**Impact:** Jarring experience using `window.confirm()` instead of custom UI components.
-**Solution:** Replace all `confirm()` calls with a shared custom `ConfirmationModal` component.
-**Estimated Effort:** Medium (4-6 hours)
-
-### Problem: Performance - Unnecessary Grid Re-renders
-**Impact:** `SpreadsheetGrid` lacks `itemKey` in `FixedSizeList`.
-**Solution:** Implement `itemKey` for better reconciliation.
-**Example:**
-```tsx
-<List
-  itemKey={(index) => paginatedRows[index].id}
-  // ...
->
-```
-**Estimated Effort:** Low (3-4 hours)
+### 6. Duplicated/Inline Dashboard Components
+*   **Problem:** `DonutChart`, `StatusPill`, and `OverflowMenu` are defined inline within `Dashboard.tsx`.
+*   **Impact:** Code duplication and missed opportunities for reuse (e.g., using `StatusPill` in the main CRM grid).
+*   **Solution:** Move these components to a shared components directory.
+*   **Estimated Effort:** 1 hour
 
 ---
 
-## 4. Low Priority
+## Medium Priority
 
-### Problem: Inconsistent Localization
-**Impact:** Use of French terms like "Succès" (App.tsx) and "Enregistré !" (QuoteGenerator.tsx).
-**Solution:** Standardize all UI strings to English.
-**Estimated Effort:** Very Low (1 hour)
+### 7. Native Browser Dialogs
+*   **Problem:** Critical actions like deleting a quote or changing status use `window.confirm`.
+*   **Impact:** Disruptive UX that doesn't match the modern, "glassmorphism" design system of the application.
+*   **Solution:** Implement a custom `ConfirmModal` component.
+*   **Estimated Effort:** 1 hour
+
+### 8. Initial Bundle Size (Code Splitting)
+*   **Problem:** Main feature tabs (`Dashboard`, `SpreadsheetGrid`, `QuoteGenerator`) are imported statically.
+*   **Impact:** The initial bundle includes code for every part of the app.
+*   **Solution:** Use `React.lazy` and `Suspense` for tab-level components.
+*   **Estimated Effort:** 30 minutes
 
 ---
 
-## Final List: 10 Most Cost-Effective Improvements
+## Low Priority
 
-1.  **Dynamic Imports for Exports:** Reduce bundle size by lazy-loading heavy libraries.
-2.  **Add `itemKey` to Grid:** Fix the React warning and improve rendering performance.
-3.  **Implement Guest Mode:** Align the app with its documentation and reduce user friction.
-4.  **Fix French Strings:** Quick fix for UI consistency.
-5.  **Aria-Labels on Icon Buttons:** Critical accessibility fix.
-6.  **Extract Navbar & Toaster:** Immediate improvement in code maintainability.
-7.  **Remove `min-w-[800px]`:** Enable mobile use for management tools.
-8.  **Shared `StatusPill` & `DonutChart`:** Reduce code duplication.
-9.  **Standardize Modals:** Replace `confirm()` with custom UI components.
-10. **Add `aria-role` to Tabs:** Ensure the navigation is semantically correct.
+### 9. Fragile CSS Architecture
+*   **Problem:** `index.css` uses multiple `!important` flags to manage theme transitions (light/dark mode).
+*   **Impact:** Difficult to maintain and leads to "CSS specificity wars."
+*   **Solution:** Refactor theme colors using CSS variables or Tailwind CSS 4 native dark mode features.
+*   **Estimated Effort:** 1 hour
+
+### 10. Missing Empty States
+*   **Problem:** Some dashboard sections have basic text for empty states.
+*   **Impact:** Low user engagement for new accounts with no data.
+*   **Solution:** Add more descriptive or illustrative empty states with "Call to Action" buttons.
+*   **Estimated Effort:** 1 hour
+
+---
+
+## Top 10 Cost-Effective Improvements
+
+1.  **Dynamic Imports for Exports:** High performance gain for minimal effort.
+2.  **Fix Localization:** Trivial to fix, significant impact on professionalism.
+3.  **Aria Labels:** Essential for accessibility, very low implementation cost.
+4.  **Fix Mobile Grid Width:** Restores functionality for a whole class of devices.
+5.  **Extract `StatusPill` & `DonutChart`:** Promotes code reuse and cleanliness.
+6.  **Lazy Load Tab Components:** Improves LCP and overall performance.
+7.  **Standardize Toasts:** Clean up the notification system logic.
+8.  **Refactor `App.tsx`:** Long-term maintenance win.
+9.  **Replace `window.confirm`:** Consistent, premium UI/UX.
+10. **Clean up `index.css`:** Reduces technical debt and styling bugs.

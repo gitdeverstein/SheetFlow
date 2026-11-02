@@ -260,10 +260,13 @@ describe('Dashboard', () => {
 
     fireEvent.click(deleteButtons[0]);
 
-    const confirmButton = await screen.findByText('Delete', { selector: 'button' });
+    // Now ConfirmModal should be visible
+    const confirmButton = await screen.findByRole('button', { name: 'Delete' });
     fireEvent.click(confirmButton);
 
-    expect(deleteQuote).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(deleteQuote).toHaveBeenCalled();
+    });
   });
 
   // ── Low Stock Watchlist ────────────────────────────────────────────────

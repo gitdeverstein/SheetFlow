@@ -8,7 +8,7 @@ import { FixedSizeList as List } from 'react-window';
 import SkeletonLoader from './SkeletonLoader.js';
 import AnimatedSection from './AnimatedSection.js';
 import { useDebounce } from '../hooks/useDebounce.js';
-import Modal from './Modal.js';
+import ConfirmModal from './ConfirmModal.js';
 
 interface SpreadsheetGridProps {
   tab: 'crm' | 'inventory';
@@ -54,8 +54,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
   const [editingCell, setEditingCell] = useState<{ rowId: string; colId: string } | null>(null);
   const [editValue, setEditValue] = useState('');
   const [cellHighlight, setCellHighlight] = useState<Record<string, boolean>>({});
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [rowToDelete, setRowToDelete] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(50);
@@ -175,15 +174,10 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
       </div>
 
       {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={!!deleteConfirm}
-        onClose={() => setDeleteConfirm(null)}
-        onConfirm={() => {
-          if (deleteConfirm) {
-            deleteSpreadsheetRow(tab, deleteConfirm);
-            setDeleteConfirm(null);
-          }
-        }}
+      <ConfirmModal
+        isOpen={!!deleteConfirmId}
+        onClose={() => setDeleteConfirmId(null)}
+        onConfirm={() => { if (deleteConfirmId) deleteSpreadsheetRow(tab, deleteConfirmId); }}
         title="Delete Record"
         message="This record will be deleted. You can undo within 4 seconds."
         confirmLabel="Delete"
@@ -193,14 +187,18 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
       {/* Spreadsheet Container */}
       <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
         <div className="overflow-x-auto">
-          <div className="min-w-max md:min-w-full">
+          <div className="min-w-max sm:min-w-full">
             {/* Column Headers */}
             <div className="grid border-b border-slate-800 bg-slate-900/40"
               style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(150px, 1fr)) 100px` }}>
               {columns.map((col) => (
                 <div key={col.id} role="columnheader" className="p-3 text-sm font-semibold text-slate-300 flex items-center justify-between border-r border-slate-800/50">
                   <span className="truncate">{col.name}</span>
-                  <button onClick={() => setSort(col.id)} className="p-1 hover:bg-slate-800 text-slate-500 hover:text-slate-200 rounded transition-colors" aria-label={`Sort by ${col.name}`}>
+                  <button
+                    onClick={() => setSort(col.id)}
+                    className="p-1 hover:bg-slate-800 text-slate-500 hover:text-slate-200 rounded transition-colors"
+                    aria-label={`Sort by ${col.name}`}
+                  >
                     {sort?.column === col.id
                       ? <span className="text-brand-400 text-xs font-bold">{sort.direction === 'asc' ? '▲' : '▼'}</span>
                       : <ArrowUpDown size={13} />}
@@ -268,12 +266,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                       return (
                         <div
                           className="grid hover:bg-slate-900/20 transition-colors group border-b border-slate-800/60"
-                          style={{
-                            ...style,
-                            gridTemplateColumns: `repeat(${columns.length}, minmax(150px, 1fr)) 100px`,
-                            width: 'auto',
-                            minWidth: '100%'
-                          } as React.CSSProperties}
+                          style={{ ...style, gridTemplateColumns: `repeat(${columns.length}, minmax(150px, 1fr)) 100px` } as React.CSSProperties}
                           tabIndex={0}
                           onKeyDown={(e) => {
                             if (e.key === 'ArrowDown') { e.preventDefault(); const next = paginatedRows[index + 1]; if (next) handleCellClick(next.id, columns[0]?.id, String(next.cells[columns[0]?.id]?.raw || '')); }
@@ -310,7 +303,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                             );
                           })}
 
-                          {/* Save & Delete row buttons */}
+                          {/* Actions */}
                           <div className="p-2 flex items-center justify-center gap-2">
                             <button
                               onClick={() => saveSpreadsheetRow(tab, row.id)}
@@ -322,7 +315,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                               {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                             </button>
                             <button
-                              onClick={() => { setRowToDelete(row.id); setIsDeleteModalOpen(true); }}
+                              onClick={() => setDeleteConfirmId(row.id)}
                               className="p-1.5 text-rose-400 rounded-lg transition-colors hover:bg-rose-500/10"
                               title="Delete"
                               aria-label="Delete row"
