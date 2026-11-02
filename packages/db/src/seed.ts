@@ -23,31 +23,21 @@ async function main() {
   await db.delete(customers);
   await db.delete(users);
 
-  console.log('Creating default users...');
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'admin123!';
-  const demoPassword = process.env.SEED_DEMO_PASSWORD || 'demo1234!';
-  const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
-  const [adminUser] = await db
-    .insert(users)
-    .values([
-      {
-        name: 'Admin',
-        email: 'admin@sheetflow.com',
-        passwordHash: adminPasswordHash,
-      },
-    ])
-    .returning();
+    console.log('Creating default users...');
+    const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'admin123!';
+    const demoPassword = process.env.SEED_DEMO_PASSWORD || 'demo1234!';
+    const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
+    await db.insert(users).values([{
+      name: 'Admin',
+      email: 'admin@sheetflow.com',
+      passwordHash: adminPasswordHash,
+    }]);
 
-  const [demoUser] = await db
-    .insert(users)
-    .values([
-      {
-        name: 'John Doe',
-        email: 'john@sheetflow.com',
-        passwordHash: await bcrypt.hash(demoPassword, 12),
-      },
-    ])
-    .returning();
+    await db.insert(users).values([{
+      name: 'John Doe',
+      email: 'john@sheetflow.com',
+      passwordHash: await bcrypt.hash(demoPassword, 12),
+    }]);
 
   console.log('Inserting customers...');
   const [c1, c2, c3, c4] = await db
@@ -146,16 +136,23 @@ async function main() {
     { quoteId: q4.id, productId: p5.id, name: p5.name, quantity: 10, unitPrice: p5.price },
   ]);
 
-  // Deduct stock dynamically for accepted quotes (QT-2026-001)
-  const quote1Items = [
-    { productId: p1.id, quantity: 2 },
-    { productId: p5.id, quantity: 1 },
-  ];
-  for (const item of quote1Items) {
-    await db
-      .update(inventory)
-      .set({ stock: sql`${inventory.stock} - ${item.quantity}` })
-      .where(sql`${inventory.id} = ${item.productId}`);
+    // Deduct stock dynamically for accepted quotes (QT-2026-001)
+    const quote1Items = [
+      { productId: p1.id, quantity: 2 },
+      { productId: p5.id, quantity: 1 },
+    ];
+    for (const item of quote1Items) {
+      await db.update(inventory)
+        .set({ stock: sql`${inventory.stock} - ${item.quantity}` })
+        .where(sql`${inventory.id} = ${item.productId}`);
+    }
+
+    console.log('Database seeded successfully!');
+    console.log(`  Admin user: admin@sheetflow.com / admin123!`);
+    console.log(`  Demo user:  john@sheetflow.com / demo1234!`);
+  } catch (error) {
+    console.error('Error seeding database:', error);
+    throw error;
   }
 
   console.log('Database seeded successfully!');
@@ -164,8 +161,8 @@ async function main() {
 }
 
 main()
-  .catch((error) => {
-    console.error('Error seeding database:', error);
+  .catch((err) => {
+    console.error(err);
     process.exit(1);
   })
   .finally(async () => {
