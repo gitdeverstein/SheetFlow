@@ -30,7 +30,7 @@ export async function fetchFullQuote(id: string): Promise<ExportFullQuote> {
 export async function exportQuotePdf(quote: ExportFullQuote): Promise<void> {
   const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
     import('jspdf'),
-    import('jspdf-autotable')
+    import('jspdf-autotable'),
   ]);
 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -139,8 +139,8 @@ export async function exportQuotePdf(quote: ExportFullQuote): Promise<void> {
 }
 
 export async function exportQuoteExcel(quote: ExportFullQuote): Promise<void> {
-  const ExcelJS = await import('exceljs');
-  const workbook = new ExcelJS.default.Workbook();
+  const ExcelJS = (await import('exceljs')).default;
+  const workbook = new ExcelJS.Workbook();
   const ws = workbook.addWorksheet('Quote');
 
   const total = Number(quote.total);

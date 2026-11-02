@@ -308,13 +308,11 @@ describe('Dashboard', () => {
 
     fireEvent.click(deleteButtons[0]);
 
-    // Now ConfirmModal should be visible
-    const confirmButton = await screen.findByRole('button', { name: 'Delete' });
+    // ConfirmModal renders with title "Delete Quote" and a "Confirm" button
+    const confirmButton = screen.getByText('Confirm', { selector: 'button' });
     fireEvent.click(confirmButton);
 
-    await waitFor(() => {
-      expect(deleteQuote).toHaveBeenCalled();
-    });
+    expect(deleteQuote).toHaveBeenCalledWith('q1');
   });
 
   // ── Low Stock Watchlist ────────────────────────────────────────────────
@@ -326,7 +324,9 @@ describe('Dashboard', () => {
 
   it('shows healthy message when all stocks are sufficient', () => {
     mockAllHooks({
-      inventory: [{ id: 'i1', sku: 'WIDGET', name: 'Widget', stock: 10, alertThreshold: 5, price: 19.99 }],
+      inventory: [
+        { id: 'i1', sku: 'WGT-001', name: 'Widget', stock: 10, alertThreshold: 5, price: 19.99 },
+      ],
     });
     render(<Dashboard />);
     expect(screen.getByText('All item stocks are healthy!')).toBeInTheDocument();
