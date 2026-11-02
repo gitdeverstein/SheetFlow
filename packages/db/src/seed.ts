@@ -27,17 +27,27 @@ async function main() {
     const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'admin123!';
     const demoPassword = process.env.SEED_DEMO_PASSWORD || 'demo1234!';
     const adminPasswordHash = await bcrypt.hash(adminPassword, 12);
-    await db.insert(users).values([{
-      name: 'Admin',
-      email: 'admin@sheetflow.com',
-      passwordHash: adminPasswordHash,
-    }]).returning();
+    const [adminUser] = await db
+      .insert(users)
+      .values([
+        {
+          name: 'Admin',
+          email: 'admin@sheetflow.com',
+          passwordHash: adminPasswordHash,
+        },
+      ])
+      .returning();
 
-    await db.insert(users).values([{
-      name: 'John Doe',
-      email: 'john@sheetflow.com',
-      passwordHash: await bcrypt.hash(demoPassword, 12),
-    }]).returning();
+    const [demoUser] = await db
+      .insert(users)
+      .values([
+        {
+          name: 'John Doe',
+          email: 'john@sheetflow.com',
+          passwordHash: await bcrypt.hash(demoPassword, 12),
+        },
+      ])
+      .returning();
 
     console.log('Inserting customers...');
     const [c1, c2, c3, c4] = await db
@@ -79,14 +89,53 @@ async function main() {
       .returning();
 
     console.log('Inserting inventory...');
-    const [p1, p2, p3, p4, p5] = await db.insert(inventory).values([
-      { sku: 'WGT-001', name: 'Premium Widget (Gold)', stock: 45, alertThreshold: 10, price: '149.99' },
-      { sku: 'WGT-002', name: 'Premium Widget (Silver)', stock: 120, alertThreshold: 20, price: '89.99' },
-      { sku: 'GDT-001', name: 'Ergonomic Gadget (Standard)', stock: 8, alertThreshold: 15, price: '249.50' },
-      { sku: 'GDT-002', name: 'Ergonomic Gadget (Pro)', stock: 3, alertThreshold: 5, price: '399.00' },
-      { sku: 'ACC-001', name: 'USB-C Hub 7-in-1', stock: 200, alertThreshold: 30, price: '34.99' },
-      { sku: 'ACC-002', name: 'Wireless Charging Pad', stock: 0, alertThreshold: 25, price: '29.99' },
-    ]).returning();
+    const [p1, p2, p3, p4, p5, p6] = await db
+      .insert(inventory)
+      .values([
+        {
+          sku: 'WGT-001',
+          name: 'Premium Widget (Gold)',
+          stock: 45,
+          alertThreshold: 10,
+          price: '149.99',
+        },
+        {
+          sku: 'WGT-002',
+          name: 'Premium Widget (Silver)',
+          stock: 120,
+          alertThreshold: 20,
+          price: '89.99',
+        },
+        {
+          sku: 'GDT-001',
+          name: 'Ergonomic Gadget (Standard)',
+          stock: 8,
+          alertThreshold: 15,
+          price: '249.50',
+        },
+        {
+          sku: 'GDT-002',
+          name: 'Ergonomic Gadget (Pro)',
+          stock: 3,
+          alertThreshold: 5,
+          price: '399.00',
+        },
+        {
+          sku: 'ACC-001',
+          name: 'USB-C Hub 7-in-1',
+          stock: 200,
+          alertThreshold: 30,
+          price: '34.99',
+        },
+        {
+          sku: 'ACC-002',
+          name: 'Wireless Charging Pad',
+          stock: 0,
+          alertThreshold: 25,
+          price: '29.99',
+        },
+      ])
+      .returning();
 
     console.log('Inserting quotes...');
     const [q1, q2, q3, q4] = await db
@@ -123,15 +172,51 @@ async function main() {
       ])
       .returning();
 
-  console.log('Inserting quote items...');
-  await db.insert(quoteItems).values([
-    { quoteId: q1.id, productId: p1.id, name: p1.name, quantity: 2, unitPrice: p1.price },
-    { quoteId: q1.id, productId: p5.id, name: p5.name, quantity: 1, unitPrice: p5.price },
-    { quoteId: q2.id, productId: p4.id, name: p4.name, quantity: 2, unitPrice: p4.price },
-    { quoteId: q3.id, productId: p3.id, name: p3.name, quantity: 1, unitPrice: p3.price },
-    { quoteId: q4.id, productId: p2.id, name: p2.name, quantity: 5, unitPrice: p2.price },
-    { quoteId: q4.id, productId: p5.id, name: p5.name, quantity: 10, unitPrice: p5.price },
-  ]);
+    console.log('Inserting quote items...');
+    await db.insert(quoteItems).values([
+      {
+        quoteId: q1.id,
+        productId: p1.id,
+        name: p1.name,
+        quantity: 2,
+        unitPrice: p1.price,
+      },
+      {
+        quoteId: q1.id,
+        productId: p5.id,
+        name: p5.name,
+        quantity: 1,
+        unitPrice: p5.price,
+      },
+      {
+        quoteId: q2.id,
+        productId: p4.id,
+        name: p4.name,
+        quantity: 2,
+        unitPrice: p4.price,
+      },
+      {
+        quoteId: q3.id,
+        productId: p3.id,
+        name: p3.name,
+        quantity: 1,
+        unitPrice: p3.price,
+      },
+      {
+        quoteId: q4.id,
+        productId: p2.id,
+        name: p2.name,
+        quantity: 5,
+        unitPrice: p2.price,
+      },
+      {
+        quoteId: q4.id,
+        productId: p5.id,
+        name: p5.name,
+        quantity: 10,
+        unitPrice: p5.price,
+      },
+    ]);
 
     // Deduct stock dynamically for accepted quotes (QT-2026-001)
     const quote1Items = [

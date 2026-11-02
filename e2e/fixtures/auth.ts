@@ -43,9 +43,12 @@ export async function login(page: Page, email: string, password: string): Promis
 
   await emailInput.fill(email);
   await page.locator('input[type="password"]').fill(password);
-  await page.locator('form').getByRole('button', { name: /sign in|login|log in/i }).click();
+  await page
+    .locator('form')
+    .getByRole('button', { name: /sign in|login|log in/i })
+    .click();
 
-  // Wait for dashboard content to load
+  // Wait for redirect to dashboard in single-page React app
   await page.waitForSelector('text=Real-time KPIs');
   await page.waitForLoadState('networkidle');
 }
