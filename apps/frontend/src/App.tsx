@@ -1,12 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useSheetStore } from './store/sheetStore.js';
-import { login, register, logout as apiLogout, checkAuth } from './store/api.js';
+import { login, register, logout as apiLogout, checkAuth, verifyEmail } from './store/api.js';
 import Dashboard from './components/Dashboard.js';
 import SpreadsheetGrid from './components/SpreadsheetGrid.js';
 import QuoteGenerator from './components/QuoteGenerator.js';
 import WelcomeScreen from './components/WelcomeScreen.js';
+import VerifyEmail from './components/VerifyEmail.js';
 import ErrorBoundary from './components/ErrorBoundary.js';
 import AnimatedSection from './components/AnimatedSection.js';
+import { useOutsideClick } from './hooks/useOutsideClick.js';
 import { LayoutDashboard, Users, Package, FilePlus, X, User, Settings, Sun, Moon, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -14,6 +16,7 @@ interface UserInfo {
   id: string;
   name: string;
   email: string;
+  emailVerified: boolean;
 }
 
 function App() {
@@ -27,7 +30,54 @@ function App() {
     return localStorage.getItem('theme') !== 'light';
   });
 
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  // Email verification flow — stores registered email after sign-up
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(
+    () => sessionStorage.getItem('pendingVerificationEmail')
+  );
+
+  // Verification result shown after user clicks the email link
+  const [verificationStatus, setVerificationStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const dropdownRef = useOutsideClick<HTMLDivElement>(() => setProfileOpen(false), profileOpen);
+
+  // Handle incoming verification token or oauth errors from URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    const oauthError = params.get('error');
+
+    if (oauthError) {
+      window.history.replaceState({}, '', window.location.pathname);
+      useSheetStore.getState().addToast('Google Sign-In was cancelled or failed.', 'error');
+    }
+
+    if (token) {
+      // Clear the token from the URL without a page reload
+      window.history.replaceState({}, '', window.location.pathname);
+      verifyEmail(token).then((result) => {
+        setVerificationStatus({ type: 'success', message: result.message });
+        // Clear pending verification if this was the user
+        sessionStorage.removeItem('pendingVerificationEmail');
+        setPendingVerificationEmail(null);
+      }).catch((err: unknown) => {
+        setVerificationStatus({
+          type: 'error',
+          message: err instanceof Error ? err.message : 'Verification failed',
+        });
+      });
+    }
+  }, []);
+
+  // Listen for Escape key on settings modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && settingsOpen) {
+        setSettingsOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [settingsOpen]);
 
   useEffect(() => {
     checkAuth().then(async (authed) => {
@@ -60,17 +110,6 @@ function App() {
     });
   };
 
-  useEffect(() => {
-    if (!profileOpen) return;
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setProfileOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [profileOpen]);
-
   if (!authChecked) {
     return (
       <div className="min-h-screen bg-dark-950 flex items-center justify-center">
@@ -80,6 +119,65 @@ function App() {
   }
 
   if (!isLoggedIn) {
+    // Show verification status (after clicking email link)
+    if (verificationStatus) {
+      return (
+        <ErrorBoundary>
+        <div className="min-h-screen bg-dark-950 flex items-center justify-center p-4 relative overflow-hidden">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            className="glass-panel rounded-2xl p-8 w-full max-w-md relative z-10 border border-slate-700/50 shadow-2xl"
+          >
+            <div className="flex flex-col items-center gap-4">
+              {verificationStatus.type === 'success' ? (
+                <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 flex items-center justify-center">
+                  <svg className="w-8 h-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              ) : (
+                <div className="w-16 h-16 rounded-2xl bg-rose-500/20 flex items-center justify-center">
+                  <svg className="w-8 h-8 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+              )}
+              <h1 className="font-display font-bold text-xl text-white">
+                {verificationStatus.type === 'success' ? 'Email Verified!' : 'Verification Failed'}
+              </h1>
+              <p className="text-slate-400 text-sm text-center">{verificationStatus.message}</p>
+              <button
+                onClick={() => { setVerificationStatus(null); }}
+                className="mt-2 px-6 py-2.5 bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-cyan-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-brand-500/20 transition-all cursor-pointer"
+              >
+                {verificationStatus.type === 'success' ? 'Sign in' : 'Try again'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+        </ErrorBoundary>
+      );
+    }
+
+    // Show pending verification notice after registration
+    if (pendingVerificationEmail) {
+      return (
+        <ErrorBoundary>
+          <VerifyEmail
+            email={pendingVerificationEmail}
+            isDarkMode={isDarkMode}
+            onToggleTheme={toggleTheme}
+            onBackToLogin={() => {
+              sessionStorage.removeItem('pendingVerificationEmail');
+              setPendingVerificationEmail(null);
+            }}
+          />
+        </ErrorBoundary>
+      );
+    }
+
     return (
       <ErrorBoundary>
         <WelcomeScreen
@@ -91,11 +189,10 @@ function App() {
           setIsLoggedIn(true);
           prefetchData();
         }}
-          onSignUp={async (name, email, password) => {
-          const result = await register(name, email, password);
-          setUser(result.user);
-          setIsLoggedIn(true);
-          prefetchData();
+          onSignUp={async (email, password) => {
+          await register(email, password);
+          sessionStorage.setItem('pendingVerificationEmail', email);
+          setPendingVerificationEmail(email);
         }}
       />
       </ErrorBoundary>
@@ -267,7 +364,7 @@ function App() {
             >
               <div className="flex-1">
                 <p className="text-xs font-semibold text-slate-400 capitalize">
-                  {toast.type === 'success' ? 'Succès' : toast.type}
+                  {toast.type === 'success' ? 'Success' : toast.type}
                 </p>
                 <p className="text-sm text-slate-200 mt-0.5">{toast.text}</p>
                 {toast.undoAction && (
@@ -281,7 +378,8 @@ function App() {
               </div>
               <button
                 onClick={() => removeToast(toast.id)}
-                className="text-slate-500 hover:text-slate-300 transition-colors"
+                aria-label="Dismiss toast"
+                className="text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
               >
                 <X size={14} />
               </button>
@@ -293,7 +391,12 @@ function App() {
       {/* Settings Modal */}
       <AnimatePresence>
         {settingsOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-dialog-title"
+          >
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
@@ -311,6 +414,7 @@ function App() {
             >
               <button
                 onClick={() => setSettingsOpen(false)}
+                aria-label="Close settings"
                 className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors cursor-pointer"
               >
                 <X size={18} />
@@ -318,7 +422,7 @@ function App() {
               
               <div className="flex items-center gap-2 mb-4">
                 <Settings className="text-brand-500" size={22} />
-                <h2 className="text-xl font-display font-semibold text-white">Application Settings</h2>
+                <h2 id="settings-dialog-title" className="text-xl font-display font-semibold text-white">Application Settings</h2>
               </div>
               
               {/* Settings Form */}

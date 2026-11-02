@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Eye, EyeOff, Sun, Moon } from 'lucide-react';
+import { Eye, EyeOff, Sun, Moon, Check, X } from 'lucide-react';
 
 interface WelcomeScreenProps {
   isDarkMode: boolean;
   onToggleTheme: () => void;
   onSignIn: (email: string, password: string) => Promise<void>;
-  onSignUp: (name: string, email: string, password: string) => Promise<void>;
+  onSignUp: (email: string, password: string) => Promise<void>;
 }
 
 const slideVariants = {
@@ -24,6 +24,8 @@ const slideVariants = {
   }),
 };
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const floatingOrb = (x: number, y: number, delay: number) => ({
   initial: { x, y, scale: 1, opacity: 0.15 },
   animate: {
@@ -40,13 +42,18 @@ export default function WelcomeScreen({ isDarkMode, onToggleTheme, onSignIn, onS
   const [direction, setDirection] = useState(0);
 
   const [email, setEmail] = useState('');
+  const [emailTouched, setEmailTouched] = useState(false);
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  // ── Email validation ───────────────────────────────────────────────────────
+  const emailValid = EMAIL_REGEX.test(email);
+  const showEmailError = emailTouched && email.length > 0 && !emailValid;
 
   const switchTab = (newTab: 'signin' | 'signup') => {
     setDirection(newTab === 'signin' ? -1 : 1);
@@ -60,6 +67,10 @@ export default function WelcomeScreen({ isDarkMode, onToggleTheme, onSignIn, onS
       setError('Please fill in all fields');
       return;
     }
+    if (!emailValid) {
+      setError('Please enter a valid email address');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
@@ -71,10 +82,52 @@ export default function WelcomeScreen({ isDarkMode, onToggleTheme, onSignIn, onS
     }
   };
 
+  // ── Password strength logic ────────────────────────────────────────────────
+  function calcStrength(pw: string): { score: number; label: string; bar: string; text: string } {
+    let score = 0;
+    if (pw.length >= 8) score++;
+    if (pw.length >= 12) score++;
+    if (/[a-z]/.test(pw)) score++;
+    if (/[A-Z]/.test(pw)) score++;
+    if (/[0-9]/.test(pw)) score++;
+    if (/[^a-zA-Z0-9]/.test(pw)) score++;
+
+    const levels = [
+      { label: 'Weak', bar: 'bg-rose-500', text: 'text-rose-400' },
+      { label: 'Fair', bar: 'bg-orange-500', text: 'text-orange-400' },
+      { label: 'Good', bar: 'bg-yellow-500', text: 'text-yellow-400' },
+      { label: 'Strong', bar: 'bg-emerald-500', text: 'text-emerald-400' },
+      { label: 'Very Strong', bar: 'bg-emerald-400', text: 'text-emerald-300' },
+    ];
+    // score ranges: 0-1→0, 2→1, 3→2, 4→3, 5-6→4
+    const idx = score <= 1 ? 0 : score - 1;
+    return { score, ...levels[Math.min(idx, 4)] };
+  }
+
+  const strength = password ? calcStrength(password) : null;
+
+  // ── Password requirements checklist ────────────────────────────────────────
+  const requirements = password ? [
+    { label: 'At least 8 characters', met: password.length >= 8 },
+    { label: 'Uppercase letter', met: /[A-Z]/.test(password) },
+    { label: 'Number', met: /[0-9]/.test(password) },
+    { label: 'Special character', met: /[^a-zA-Z0-9]/.test(password) },
+  ] : [];
+
+  const allRequirementsMet = requirements.length > 0 && requirements.every(r => r.met);
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim() || !password.trim() || !confirmPassword.trim()) {
+    if (!email.trim() || !password.trim() || !confirmPassword.trim()) {
       setError('Please fill in all fields');
+      return;
+    }
+    if (!emailValid) {
+      setError('Please enter a valid email address');
+      return;
+    }
+    if (!allRequirementsMet) {
+      setError('Password does not meet all requirements');
       return;
     }
     if (password !== confirmPassword) {
@@ -84,7 +137,7 @@ export default function WelcomeScreen({ isDarkMode, onToggleTheme, onSignIn, onS
     setError('');
     setLoading(true);
     try {
-      await onSignUp(name.trim(), email.trim(), password);
+      await onSignUp(email.trim(), password);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Sign up failed');
     } finally {
@@ -179,10 +232,25 @@ export default function WelcomeScreen({ isDarkMode, onToggleTheme, onSignIn, onS
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => { setEmail(e.target.value); setEmailTouched(true); }}
                     placeholder="you@example.com"
-                    className="w-full bg-slate-900/80 border border-slate-700/60 rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30 transition-all"
+                    className={`w-full bg-slate-900/80 border rounded-xl px-4 py-2.5 pr-10 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 transition-all ${
+                      showEmailError
+                        ? 'border-rose-500/60 focus:border-rose-500 focus:ring-rose-500/30'
+                        : emailTouched && emailValid && email.length > 0
+                          ? 'border-emerald-500/60 focus:border-emerald-500 focus:ring-emerald-500/30'
+                          : 'border-slate-700/60 focus:border-brand-500 focus:ring-brand-500/30'
+                    }`}
                   />
+                  {showEmailError && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-xs text-rose-400 font-medium"
+                    >
+                      Invalid email format
+                    </motion.p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Password</label>
@@ -229,24 +297,29 @@ export default function WelcomeScreen({ isDarkMode, onToggleTheme, onSignIn, onS
             ) : (
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Name</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="John Doe"
-                    className="w-full bg-slate-900/80 border border-slate-700/60 rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30 transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
                   <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Email</label>
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => { setEmail(e.target.value); setEmailTouched(true); }}
                     placeholder="you@example.com"
-                    className="w-full bg-slate-900/80 border border-slate-700/60 rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30 transition-all"
+                    className={`w-full bg-slate-900/80 border rounded-xl px-4 py-2.5 pr-10 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 transition-all ${
+                      showEmailError
+                        ? 'border-rose-500/60 focus:border-rose-500 focus:ring-rose-500/30'
+                        : emailTouched && emailValid && email.length > 0
+                          ? 'border-emerald-500/60 focus:border-emerald-500 focus:ring-emerald-500/30'
+                          : 'border-slate-700/60 focus:border-brand-500 focus:ring-brand-500/30'
+                    }`}
                   />
+                  {showEmailError && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-xs text-rose-400 font-medium"
+                    >
+                      Invalid email format
+                    </motion.p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Password</label>
@@ -262,6 +335,49 @@ export default function WelcomeScreen({ isDarkMode, onToggleTheme, onSignIn, onS
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
+
+                  {/* Password Strength Indicator */}
+                  {password && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="pt-2 space-y-2"
+                    >
+                      {/* Segmented Bar */}
+                      <div className="flex gap-1 h-1">
+                        {[0, 1, 2, 3, 4].map((i) => (
+                          <div
+                            key={i}
+                            className={`flex-1 rounded-full transition-all duration-300 ${
+                              strength && i <= Math.min(strength.score - (strength.score <= 1 ? 0 : 1), 4)
+                                ? strength.bar
+                                : 'bg-slate-700/50'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      {/* Label */}
+                      <p className={`text-xs font-semibold ${strength?.text ?? 'text-slate-500'} transition-colors duration-300`}>
+                        {strength?.label ?? ''}
+                      </p>
+
+                      {/* Requirements Checklist */}
+                      <div className="space-y-1 pt-0.5">
+                        {requirements.map((req) => (
+                          <div key={req.label} className="flex items-center gap-2">
+                            {req.met ? (
+                              <Check size={12} className="text-emerald-400 shrink-0" />
+                            ) : (
+                              <X size={12} className="text-slate-500 shrink-0" />
+                            )}
+                            <span className={`text-xs ${req.met ? 'text-emerald-400' : 'text-slate-500'} transition-colors duration-200`}>
+                              {req.label}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Confirm Password</label>

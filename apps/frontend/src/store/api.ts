@@ -77,7 +77,7 @@ export async function apiFetch<T = unknown>(url: string, options: ApiFetchOption
   }
 }
 
-export async function login(email: string, password: string): Promise<{ user: { id: string; name: string; email: string } }> {
+export async function login(email: string, password: string): Promise<{ user: { id: string; name: string; email: string; emailVerified: boolean } }> {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -91,16 +91,41 @@ export async function login(email: string, password: string): Promise<{ user: { 
   return res.json();
 }
 
-export async function register(name: string, email: string, password: string): Promise<{ user: { id: string; name: string; email: string } }> {
+export async function register(email: string, password: string): Promise<{ message: string }> {
   const res = await fetch(`${API_BASE}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ name, email, password }),
+    body: JSON.stringify({ email, password }),
   });
   if (!res.ok) {
     const body: ErrorBody = await res.json().catch(() => ({}));
     throw new Error(body.error || 'Registration failed');
+  }
+  return res.json();
+}
+
+export async function verifyEmail(token: string): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE}/auth/verify?token=${encodeURIComponent(token)}`, {
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    const body: ErrorBody = await res.json().catch(() => ({}));
+    throw new Error(body.error || 'Verification failed');
+  }
+  return res.json();
+}
+
+export async function resendVerification(email: string): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE}/auth/resend-verification`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) {
+    const body: ErrorBody = await res.json().catch(() => ({}));
+    throw new Error(body.error || 'Failed to resend verification');
   }
   return res.json();
 }
@@ -110,10 +135,6 @@ export async function logout(): Promise<void> {
     method: 'POST',
     credentials: 'include',
   });
-}
-
-export function getGoogleAuthUrl(): string {
-  return `${API_BASE}/auth/google`;
 }
 
 export function buildCrmRow(c: Customer): SheetRow {
