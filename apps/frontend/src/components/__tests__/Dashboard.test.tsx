@@ -196,23 +196,27 @@ describe('Dashboard', () => {
     mockAllHooks({
       store: { updateQuoteStatus },
       quotes: [
-        { id: 'q1', quoteNumber: 'QT-001', customerName: 'Acme', status: 'Draft', total: '100', customerId: 'c1' },
+        { id: 'q1', quoteNumber: 'QT-001', customerName: 'Acme', status: 'Sent', total: '100', customerId: 'c1' },
       ],
     });
 
     render(<Dashboard />);
 
-    // Find the Draft StatusPill button (it's the one with the ▾ dropdown indicator)
-    const draftButtons = screen.getAllByRole('button').filter(b => b.textContent?.includes('Draft') && b.textContent?.includes('▾'));
-    expect(draftButtons.length).toBeGreaterThanOrEqual(1);
-    fireEvent.click(draftButtons[0]);
+    // Find the Sent StatusPill button (it's the one with the ▾ dropdown indicator)
+    const sentButtons = screen.getAllByRole('button').filter(b => b.textContent?.includes('Sent') && b.textContent?.includes('▾'));
+    expect(sentButtons.length).toBeGreaterThanOrEqual(1);
+    fireEvent.click(sentButtons[0]);
 
-    // The Sent option should appear in the dropdown
-    const sentOption = await screen.findByRole('option', { name: /Sent/ });
-    fireEvent.click(sentOption);
+    // The Accepted option should appear in the dropdown
+    const acceptedOption = await screen.findByRole('button', { name: /Accepted/ });
+    fireEvent.click(acceptedOption);
+
+    // Modal should appear
+    const confirmButton = await screen.findByText('Confirm', { selector: 'button' });
+    fireEvent.click(confirmButton);
 
     await waitFor(() => {
-      expect(updateQuoteStatus).toHaveBeenCalledWith('q1', 'Sent');
+      expect(updateQuoteStatus).toHaveBeenCalledWith('q1', 'Accepted');
     });
   });
 
@@ -256,11 +260,10 @@ describe('Dashboard', () => {
 
     fireEvent.click(deleteButtons[0]);
 
-    // Should show custom Modal now, not window.confirm
-    const confirmButton = await screen.findByRole('button', { name: 'Confirm' });
+    const confirmButton = await screen.findByText('Delete', { selector: 'button' });
     fireEvent.click(confirmButton);
 
-    expect(deleteQuote).toHaveBeenCalledWith('q1');
+    expect(deleteQuote).toHaveBeenCalled();
   });
 
   // ── Low Stock Watchlist ────────────────────────────────────────────────

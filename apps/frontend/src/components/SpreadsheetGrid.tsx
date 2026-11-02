@@ -174,38 +174,33 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
         </div>
       </div>
 
+      {/* Delete Confirmation Modal */}
       <Modal
-        isOpen={isDeleteModalOpen}
-        title="Delete Record"
-        message="Are you sure you want to delete this record? You can undo this action within 4 seconds if needed."
-        confirmText="Delete"
-        variant="danger"
-        onClose={() => setIsDeleteModalOpen(false)}
+        isOpen={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
         onConfirm={() => {
-          if (rowToDelete) {
-            deleteSpreadsheetRow(tab, rowToDelete);
-            setRowToDelete(null);
+          if (deleteConfirm) {
+            deleteSpreadsheetRow(tab, deleteConfirm);
+            setDeleteConfirm(null);
           }
         }}
+        title="Delete Record"
+        message="This record will be deleted. You can undo within 4 seconds."
+        confirmLabel="Delete"
+        variant="danger"
       />
 
       {/* Spreadsheet Container */}
       <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
-        <div className="overflow-x-auto w-full">
-          <div className="min-w-[1000px] lg:min-w-full">
+        <div className="overflow-x-auto">
+          <div className="min-w-max md:min-w-full">
             {/* Column Headers */}
             <div className="grid border-b border-slate-800 bg-slate-900/40"
-              style={{ gridTemplateColumns: `repeat(${columns.length}, 1fr) 100px` }}
-              role="row"
-            >
+              style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(150px, 1fr)) 100px` }}>
               {columns.map((col) => (
                 <div key={col.id} role="columnheader" className="p-3 text-sm font-semibold text-slate-300 flex items-center justify-between border-r border-slate-800/50">
                   <span className="truncate">{col.name}</span>
-                  <button
-                    onClick={() => setSort(col.id)}
-                    className="p-1 hover:bg-slate-800 text-slate-500 hover:text-slate-200 rounded transition-colors"
-                    aria-label={`Sort by ${col.name}`}
-                  >
+                  <button onClick={() => setSort(col.id)} className="p-1 hover:bg-slate-800 text-slate-500 hover:text-slate-200 rounded transition-colors" aria-label={`Sort by ${col.name}`}>
                     {sort?.column === col.id
                       ? <span className="text-brand-400 text-xs font-bold">{sort.direction === 'asc' ? '▲' : '▼'}</span>
                       : <ArrowUpDown size={13} />}
@@ -217,8 +212,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
 
             {/* Filter Row */}
             <div className="grid border-b border-slate-800 bg-slate-950/20"
-              style={{ gridTemplateColumns: `repeat(${columns.length}, 1fr) 100px` }}
-            >
+              style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(150px, 1fr)) 100px` }}>
               {columns.map((col) => (
                 <div key={col.id} className="p-2 border-r border-slate-800/50 relative flex items-center">
                   <Search size={12} className="absolute left-4 text-slate-600 z-10" aria-hidden="true" />
@@ -274,7 +268,12 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                       return (
                         <div
                           className="grid hover:bg-slate-900/20 transition-colors group border-b border-slate-800/60"
-                          style={{ ...style, gridTemplateColumns: `repeat(${columns.length}, 1fr) 100px` } as React.CSSProperties}
+                          style={{
+                            ...style,
+                            gridTemplateColumns: `repeat(${columns.length}, minmax(150px, 1fr)) 100px`,
+                            width: 'auto',
+                            minWidth: '100%'
+                          } as React.CSSProperties}
                           tabIndex={0}
                           onKeyDown={(e) => {
                             if (e.key === 'ArrowDown') { e.preventDefault(); const next = paginatedRows[index + 1]; if (next) handleCellClick(next.id, columns[0]?.id, String(next.cells[columns[0]?.id]?.raw || '')); }
@@ -318,7 +317,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                               disabled={isSaving}
                               className="p-1.5 text-emerald-400 rounded-lg transition-colors hover:bg-emerald-500/10 disabled:opacity-50 cursor-pointer"
                               title="Save"
-                              aria-label="Save Row"
+                              aria-label="Save row"
                             >
                               {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                             </button>
@@ -326,7 +325,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                               onClick={() => { setRowToDelete(row.id); setIsDeleteModalOpen(true); }}
                               className="p-1.5 text-rose-400 rounded-lg transition-colors hover:bg-rose-500/10"
                               title="Delete"
-                              aria-label="Delete Row"
+                              aria-label="Delete row"
                             >
                               <Trash2 size={14} />
                             </button>

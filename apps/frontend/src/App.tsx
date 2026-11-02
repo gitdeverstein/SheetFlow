@@ -168,11 +168,15 @@ function App() {
     <div className="min-h-screen bg-dark-950 text-slate-100 flex flex-col font-sans">
       <Navbar
         user={user}
-        setUser={setUser}
-        setIsLoggedIn={setIsLoggedIn}
         isDarkMode={isDarkMode}
         toggleTheme={toggleTheme}
+        profileOpen={profileOpen}
+        setProfileOpen={setProfileOpen}
         setSettingsOpen={setSettingsOpen}
+        onLogout={() => {
+          setIsLoggedIn(false);
+          setUser(null);
+        }}
       />
 
       {/* Main Content Area */}
@@ -221,6 +225,7 @@ function App() {
               <button
                 onClick={() => setSettingsOpen(false)}
                 className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                aria-label="Close settings"
               >
                 <X size={18} />
               </button>
