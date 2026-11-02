@@ -94,7 +94,7 @@ async function main() {
     console.error('Error seeding database:', error);
     process.exit(1);
   } finally {
-    await client?.end();
+    await client.end();
   }
 }
 

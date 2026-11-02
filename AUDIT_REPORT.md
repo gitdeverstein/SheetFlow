@@ -1,89 +1,112 @@
-# Weekly Audit Report - SheetFlow
+# SheetFlow Frontend Audit Report
 
-## Required Analysis
+This report identifies the most relevant improvements for the SheetFlow frontend, categorized by priority.
 
-### 1. User Behavior
-*   **User Journeys:** Users typically start at the Dashboard to monitor KPIs, then transition to CRM or Inventory for data management, or directly to the Quote Generator to finalize sales.
-*   **Abandonment Points:** High friction in the `QuoteGenerator` when selecting products from a large inventory using standard dropdowns. Users may abandon the quote if they can't find items quickly.
-*   **Most Visited Pages:** Dashboard and Spreadsheet Grid (CRM/Inventory).
-*   **Low Engagement Pages:** The Formula Engine features in the spreadsheet are currently underutilized due to a lack of a visual formula builder or documentation within the UI.
+## Critical Priority
 
-### 2. Conversion
-*   **Form Optimization:** Sign-in and Sign-up forms are streamlined. However, the `QuoteGenerator` form requires manual input for price/quantity without inline validation or "stock-out" warnings until submission.
-*   **CTA Optimization:** Primary CTAs like "Create New Quote" and "Add New Row" are prominent. Secondary actions (Export) are tucked into overflow menus on mobile, reducing discoverability.
-*   **Pain Points:** Selecting clients and products in `QuoteGenerator` via basic search-and-select is clunky for power users.
-*   **Funnel Abandonment:** Transition from "Draft" to "Sent" is manual; automating this via email integration could reduce abandonment.
+### Bundle Size Bloat (Performance)
+*   **Problem**: Large libraries (`jspdf`, `exceljs`) are imported statically in `exportUtils.ts`.
+*   **Impact**: Significantly increases initial load time (LCP) and bundle size for all users, even those who don't use export features.
+*   **Solution**: Implement dynamic imports (lazy loading) for export utilities.
+*   **Estimated Effort**: Low
+```typescript
+// Proposed change in exportUtils.ts
+export async function exportQuotePdf(quote: ExportFullQuote) {
+  const { default: jsPDF } = await import('jspdf');
+  const { default: autoTable } = await import('jspdf-autotable');
+  // ...
+}
+```
 
-### 3. Product
-*   **Existing Features:** Robust CRUD operations, real-time KPI dashboard, and automatic inventory deduction on quote acceptance.
-*   **Underutilized Features:** Advanced formula support (`SUM`, `AVERAGE`) is powerful but lacks discovery tools.
-*   **Functional Improvements:** Suggested addition of a "Customer History" view within the CRM tab to see all quotes associated with a contact.
+## High Priority
 
-### 4. Performance
-*   **Metrics Comparison:** Implementation of `react-window` for virtualization keeps the Spreadsheet Grid responsive even with large datasets.
-*   **Regressions:** Initial bundle size is slightly high due to synchronous imports of `jspdf` and `exceljs` in `exportUtils.ts`.
+### Quote Generator Friction (UX)
+*   **Problem**: Redundant search and select flow for customers and products in `QuoteGenerator.tsx`.
+*   **Impact**: Increases cognitive load and time-to-completion; high friction for a core business action.
+*   **Solution**: Implement a unified accessible combobox/autocomplete component (e.g., using Headless UI or Radix).
+*   **Estimated Effort**: Medium
 
-### 5. SEO
-*   **Opportunities:** The application is a SPA; implementing server-side rendering (SSR) or better meta-tag management would improve indexing for "SME CRM Spreadsheet" keywords.
-*   **Strategic Keywords:** Targeting "Spreadsheet CRM", "Small Business Quote Generator", and "Inventory Formula Tracker".
+### Missing Route-Level Code Splitting (Performance)
+*   **Problem**: All main components (`Dashboard`, `SpreadsheetGrid`, `QuoteGenerator`) are bundled together in `App.tsx`.
+*   **Impact**: Delays application interactivity (FID) as the browser parses the entire app logic at once.
+*   **Solution**: Use `React.lazy` and `Suspense` for top-level tab components.
+*   **Estimated Effort**: Low
 
-### 6. Accessibility
-*   **WCAG Compliance:** Most interactive elements have `aria-label` or descriptive text.
-*   **Barriers:** The custom `StatusPill` dropdowns in the Dashboard don't fully support keyboard "Esc" to close or "Arrow" navigation, making them difficult for screen reader users.
+### Missing ARIA and Focus Management (Accessibility)
+*   **Problem**: Many interactive elements (buttons, inputs) lack descriptive ARIA labels; focus is not managed in modals or dropdowns.
+*   **Impact**: Non-compliant with WCAG; unusable for screen reader and keyboard-only users.
+*   **Solution**: Audit buttons for `aria-label`, add `role="dialog"`, and implement focus traps for modals.
+*   **Estimated Effort**: Medium
+
+### Spreadsheet Horizontal Overflow (Mobile/Responsive)
+*   **Problem**: `SpreadsheetGrid` uses fixed `min-w-[800px]`, leading to poor mobile experience.
+*   **Impact**: Critical tables are nearly unusable on small screens.
+*   **Solution**: Implement sticky first columns or a "card-view" toggle for mobile devices.
+*   **Estimated Effort**: Medium
+
+### Component Logic Bloat (Code Quality)
+*   **Problem**: `SpreadsheetGrid.tsx` and `QuoteGenerator.tsx` exceed 400+ lines with massive inline state.
+*   **Impact**: High technical debt; difficult to test or refactor without regressions.
+*   **Solution**: Extract logic into domain-specific custom hooks (e.g., `useSpreadsheetLogic`).
+*   **Estimated Effort**: Medium
+
+## Medium Priority
+
+### Native Confirmation Dialogs (UX)
+*   **Problem**: Critical actions (delete, status change) use native `window.confirm`.
+*   **Impact**: Breaks the premium, animated aesthetic of the application and provides poor UX.
+*   **Solution**: Replace with a custom `ConfirmationModal` using Framer Motion for consistent transitions.
+*   **Estimated Effort**: Low
+
+### Dark/Light Mode Consistency (UI)
+*   **Problem**: Light mode relies on heavy CSS `!important` overrides in `index.css`.
+*   **Impact**: Prone to visual regressions and hard to maintain as the UI grows.
+*   **Solution**: Refactor to a token-based system using CSS variables or Tailwind 4's native theme features.
+*   **Estimated Effort**: Medium
+
+### Guest Mode Visibility (Conversion & Engagement)
+*   **Problem**: No "Try as Guest" or "Explore Demo" option on the `WelcomeScreen`.
+*   **Impact**: High friction for new users who want to see the product before signing up.
+*   **Solution**: Add a clear "Continue as Guest" CTA to the welcome screen.
+*   **Estimated Effort**: Low
+
+### Formula Engine Tight Coupling (Code Quality)
+*   **Problem**: `spreadsheetSlice` and `formulaEngine` are tightly interleaved.
+*   **Impact**: Limits the ability to swap or upgrade the calculation engine.
+*   **Solution**: Define a clear Interface for the engine and move orchestration out of the store slice.
+*   **Estimated Effort**: Medium
+
+### StatusPill Semantic Roles (Accessibility)
+*   **Problem**: Custom status dropdowns lack `listbox` and `option` roles.
+*   **Impact**: Assistive technologies cannot interpret the status selection menu.
+*   **Solution**: Update `StatusPill.tsx` with proper ARIA attributes.
+*   **Estimated Effort**: Low
+
+## Low Priority
+
+### Discoverability of Editing (UX/UI)
+*   **Problem**: Double-click requirement for cell editing is not visually signaled.
+*   **Impact**: Minor learning curve for new users.
+*   **Solution**: Add an "edit" icon or cursor change on cell hover.
+*   **Estimated Effort**: Very Low
+
+### Inconsistent Button Variants (Design System)
+*   **Problem**: Standard `button` and `motion.button` used interchangeably with inconsistent padding.
+*   **Impact**: Minor visual polish issue.
+*   **Solution**: Create a centralized `Button` component in `components/ui`.
+*   **Estimated Effort**: Low
 
 ---
 
-## Top 5 Recommended Improvements
+## Summary: 10 Most Cost-Effective Improvements
 
-| Rank | Improvement | ROI | Priority | Difficulty |
-| :--- | :--- | :--- | :--- | :--- |
-| 1 | **Searchable Combobox for Quote Items** | High | Critical | Medium |
-| 2 | **Dynamic Imports for Export Libraries** | High | High | Low |
-| 3 | **Accessibility Audit & ARIA Remediation** | Medium | High | Low |
-| 4 | **Formula UI Assistant** | Medium | Medium | Medium |
-| 5 | **Global Command Palette (Cmd+K)** | Medium | Low | Medium |
-
-### 1. Searchable Combobox for Quote Items
-*   **Description:** Replace the current search input + select combo in `QuoteGenerator.tsx` with a unified, keyboard-accessible Combobox component.
-*   **Problem Solved:** Reduces the time and effort required to find and add products to a quote.
-*   **User Impact:** Significantly smoother quote creation experience.
-*   **Business Impact:** Increased conversion rate for quote generation and fewer user errors.
-*   **Estimated Difficulty:** Medium
-*   **Priority:** Critical
-*   **KPIs to track:** Time to complete a quote, number of items per quote.
-
-### 2. Dynamic Imports for Export Libraries
-*   **Description:** Use dynamic `import()` for `jspdf` and `exceljs` within `exportUtils.ts` so they are only loaded when a user clicks "Export".
-*   **Problem Solved:** Reduces the initial JavaScript bundle size, speeding up first contentful paint (FCP).
-*   **User Impact:** Faster initial application loading, especially on mobile/slow networks.
-*   **Business Impact:** Improved SEO ranking and lower bounce rates on landing.
-*   **Estimated Difficulty:** Low
-*   **Priority:** High
-*   **KPIs to track:** Initial Bundle Size, Lighthouse Performance Score.
-
-### 3. Accessibility Audit & ARIA Remediation
-*   **Description:** Standardize `aria-label` attributes on icon-only buttons and ensure all dropdowns (StatusPill, OverflowMenu) follow WAI-ARIA patterns for keyboard navigation.
-*   **Problem Solved:** Ensures the application is usable by individuals with visual impairments or motor disabilities.
-*   **User Impact:** Inclusivity and improved usability for keyboard-only users.
-*   **Business Impact:** Compliance with legal standards and expanded market reach.
-*   **Estimated Difficulty:** Low
-*   **Priority:** High
-*   **KPIs to track:** Accessibility Score (Lighthouse/Axe), Screen Reader user success rate.
-
-### 4. Formula UI Assistant
-*   **Description:** Add a tooltip or a small "fx" button in the Spreadsheet Grid that opens a reference guide for supported formulas and helps with cell selection.
-*   **Problem Solved:** Increases discovery and usage of the application's most powerful differentiation feature.
-*   **User Impact:** Empowers users to create complex workflows within the CRM.
-*   **Business Impact:** Higher user retention (stickiness) as they build specialized logic.
-*   **Estimated Difficulty:** Medium
-*   **Priority:** Medium
-*   **KPIs to track:** Percentage of rows using formulas, user retention rate.
-
-### 5. Global Command Palette (Cmd+K)
-*   **Description:** Implement a global search overlay to jump between tabs, search for specific customers, or create a new quote from anywhere.
-*   **Problem Solved:** Streamlines navigation for power users who manage hundreds of records.
-*   **User Impact:** "Pro-tool" feel and extreme efficiency.
-*   **Business Impact:** Improved perceived performance and technical quality.
-*   **Estimated Difficulty:** Medium
-*   **Priority:** Low
-*   **KPIs to track:** Average navigation time between pages.
+1.  **Dynamic imports for `jspdf` & `exceljs`**: Immediate 50%+ reduction in initial JS size.
+2.  **`React.lazy` for tabs**: Faster app boot for minimal effort.
+3.  **Add `aria-label` to all icons**: High accessibility ROI.
+4.  **Custom Confirmation Modal**: Significant UX premium feel improvement.
+5.  **"Continue as Guest" CTA**: Direct improvement to user conversion rates.
+6.  **Extract `useSpreadsheetLogic`**: Critical for long-term maintainability.
+7.  **Sticky column for Spreadsheet**: Fixes the biggest mobile usability issue.
+8.  **"fx" indicator for formulas**: Improves spreadsheet UX/Transparency.
+9.  **Standardize `Button` component**: Fixes design system fragmentation.
+10. **"Copy to Clipboard" for IDs**: High-value micro-interaction for power users.
