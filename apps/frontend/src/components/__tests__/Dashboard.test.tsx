@@ -199,8 +199,6 @@ describe('Dashboard', () => {
         { id: 'q1', quoteNumber: 'QT-001', customerName: 'Acme', status: 'Draft', total: '100', customerId: 'c1' },
       ],
     });
-    const originalConfirm = window.confirm;
-    window.confirm = vi.fn(() => true);
 
     render(<Dashboard />);
 
@@ -216,8 +214,6 @@ describe('Dashboard', () => {
     await waitFor(() => {
       expect(updateQuoteStatus).toHaveBeenCalledWith('q1', 'Sent');
     });
-
-    window.confirm = originalConfirm;
   });
 
   // ── ExpiryBadge ────────────────────────────────────────────────────────
@@ -260,14 +256,11 @@ describe('Dashboard', () => {
 
     fireEvent.click(deleteButtons[0]);
 
-    // Check for modal and click delete
-    const modalDeleteButton = screen.getAllByRole('button').find(b => b.textContent === 'Delete');
-    expect(modalDeleteButton).toBeDefined();
-    fireEvent.click(modalDeleteButton!);
+    // Should open the Modal - we use findByText for the confirm button
+    const modalConfirmButton = await screen.findByText('Delete', { selector: 'button' });
+    fireEvent.click(modalConfirmButton);
 
-    await waitFor(() => {
-      expect(deleteQuote).toHaveBeenCalled();
-    });
+    expect(deleteQuote).toHaveBeenCalled();
   });
 
   // ── Low Stock Watchlist ────────────────────────────────────────────────

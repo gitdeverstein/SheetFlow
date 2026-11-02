@@ -3,15 +3,12 @@ import { useSheetStore, buildCrmRow, buildInvRow } from '../store/sheetStore.js'
 import { useCustomers } from '../hooks/useCustomers.js';
 import { useInventory } from '../hooks/useInventory.js';
 import { Plus, Trash2, Save, ArrowUpDown, Search, AlertCircle, Upload, Loader2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { FixedSizeList as List } from 'react-window';
 import SkeletonLoader from './SkeletonLoader.js';
 import AnimatedSection from './AnimatedSection.js';
 import { useDebounce } from '../hooks/useDebounce.js';
-import { Modal } from './ui/Modal.js';
-import { Button } from './ui/Button.js';
-import { Input } from './ui/Input.js';
-import type { SheetColumn, SheetRow } from '@sheetflow/shared';
-import { parseInventoryCsv } from '../utils/csvUtils.js';
+import Modal from './Modal.js';
 
 interface SpreadsheetGridProps {
   tab: 'crm' | 'inventory';
@@ -180,21 +177,21 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
       <Modal
         isOpen={!!deleteConfirm}
         onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => {
+          const id = deleteConfirm;
+          setDeleteConfirm(null);
+          if (id) deleteSpreadsheetRow(tab, id);
+        }}
         title="Delete Record"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
-            <Button variant="danger" onClick={() => { const id = deleteConfirm; setDeleteConfirm(null); deleteSpreadsheetRow(tab, id!); }}>Delete</Button>
-          </>
-        }
-      >
-        <p>This record will be deleted. You can undo within 4 seconds.</p>
-      </Modal>
+        message="This record will be deleted. You can undo within 4 seconds."
+        confirmText="Delete"
+        variant="danger"
+      />
 
       {/* Spreadsheet Container */}
       <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
-        <div className="overflow-x-auto">
-          <div className="min-w-[800px]">
+        <div className="overflow-x-auto w-full">
+          <div className="min-w-[1000px] lg:min-w-full">
             {/* Column Headers */}
             <div className="grid border-b border-slate-800 bg-slate-900/40"
               style={{ gridTemplateColumns: `repeat(${columns.length}, 1fr) 100px` }}
@@ -268,6 +265,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                     itemSize={48}
                     width="100%"
                     overscanCount={5}
+                    itemKey={(index) => paginatedRows[index].id}
                   >
                     {({ index, style }) => {
                       const row = paginatedRows[index];

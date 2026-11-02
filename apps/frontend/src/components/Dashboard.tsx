@@ -8,12 +8,7 @@ import { motion } from 'framer-motion';
 import { QUOTE_STATUS_TRANSITIONS } from '@sheetflow/shared';
 import AnimatedSection from './AnimatedSection.js';
 import SkeletonLoader from './SkeletonLoader.js';
-import { DonutChart } from './ui/DonutChart.js';
-import { StatusPill } from './ui/StatusPill.js';
-import { OverflowMenu } from './ui/OverflowMenu.js';
-import { ExpiryBadge } from './ui/ExpiryBadge.js';
-import { Modal } from './ui/Modal.js';
-import { Button } from './ui/Button.js';
+import Modal from './Modal.js';
 
 const KPI_STYLES: Record<string, { bg: string; text: string }> = {
   emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-400' },
@@ -42,6 +37,20 @@ export default function Dashboard() {
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [statusConfirm, setStatusConfirm] = useState<{ id: string; status: string } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    variant: 'danger' | 'info' | 'warning';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    variant: 'info',
+  });
 
   const totalCustomers = customers.length;
   const totalProducts = inventory.length;
@@ -172,7 +181,13 @@ export default function Dashboard() {
                             transitions={QUOTE_STATUS_TRANSITIONS[quote.status] ?? []}
                             onChange={(newStatus) => {
                               if (newStatus === 'Accepted' || quote.status === 'Accepted') {
-                                setStatusConfirm({ id: quote.id, status: newStatus });
+                                setModalConfig({
+                                  isOpen: true,
+                                  title: 'Change Quote Status',
+                                  message: `Change status to "${newStatus}"? This will adjust inventory stock.`,
+                                  onConfirm: () => updateQuoteStatus(quote.id, newStatus),
+                                  variant: 'warning',
+                                });
                               } else {
                                 updateQuoteStatus(quote.id, newStatus);
                               }
@@ -204,19 +219,34 @@ export default function Dashboard() {
                             {exportingExcelId === quote.id ? <Loader2 size={12} className="animate-spin" /> : <FileSpreadsheet size={12} />}
                             <span>XLS</span>
                           </button>
-                          <button onClick={() => setDeleteConfirm(quote.id)}
-                            aria-label={`Delete quote ${quote.quoteNumber}`}
-                            className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer" title="Delete">
+                          <button onClick={() => {
+                            setModalConfig({
+                              isOpen: true,
+                              title: 'Delete Quote',
+                              message: 'Delete this quote? Stock will be restored if accepted.',
+                              onConfirm: () => deleteQuote(quote.id),
+                              variant: 'danger',
+                            });
+                          }}
+                            className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors" title="Delete">
                             <Trash2 size={15} />
                           </button>
                         </div>
                         {/* Mobile overflow menu */}
                         <OverflowMenu>
-                          <button onClick={() => { setEditingQuote(quote.id); setActiveTab('quotes'); }} className="w-full text-left px-3 py-2 text-xs text-cyan-400 hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><Edit3 size={13} /> Edit</button>
-                          <button onClick={() => handleDuplicate(quote.id)} className="w-full text-left px-3 py-2 text-xs text-violet-400 hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><Copy size={13} /> Duplicate</button>
-                          <button onClick={() => generatePdf(quote.id)} className="w-full text-left px-3 py-2 text-xs text-brand-400 hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><Download size={13} /> Export PDF</button>
-                          <button onClick={() => exportExcel(quote.id)} className="w-full text-left px-3 py-2 text-xs text-emerald-400 hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><FileSpreadsheet size={13} /> Export Excel</button>
-                          <button onClick={() => setDeleteConfirm(quote.id)} className="w-full text-left px-3 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><Trash2 size={13} /> Delete</button>
+                          <button onClick={() => { setEditingQuote(quote.id); setActiveTab('quotes'); }} className="w-full text-left px-3 py-2 text-xs text-cyan-400 hover:bg-slate-800 flex items-center gap-2"><Edit3 size={13} /> Edit</button>
+                          <button onClick={() => handleDuplicate(quote.id)} className="w-full text-left px-3 py-2 text-xs text-violet-400 hover:bg-slate-800 flex items-center gap-2"><Copy size={13} /> Duplicate</button>
+                          <button onClick={() => generatePdf(quote.id)} className="w-full text-left px-3 py-2 text-xs text-brand-400 hover:bg-slate-800 flex items-center gap-2"><Download size={13} /> Export PDF</button>
+                          <button onClick={() => exportExcel(quote.id)} className="w-full text-left px-3 py-2 text-xs text-emerald-400 hover:bg-slate-800 flex items-center gap-2"><FileSpreadsheet size={13} /> Export Excel</button>
+                          <button onClick={() => {
+                            setModalConfig({
+                              isOpen: true,
+                              title: 'Delete Quote',
+                              message: 'Delete this quote?',
+                              onConfirm: () => deleteQuote(quote.id),
+                              variant: 'danger',
+                            });
+                          }} className="w-full text-left px-3 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center gap-2"><Trash2 size={13} /> Delete</button>
                         </OverflowMenu>
                       </td>
                     </tr>
@@ -300,44 +330,15 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Confirmation Modals */}
       <Modal
-        isOpen={!!statusConfirm}
-        onClose={() => setStatusConfirm(null)}
-        title="Confirm Status Change"
-        footer={(
-          <>
-            <Button variant="secondary" onClick={() => setStatusConfirm(null)}>Cancel</Button>
-            <Button variant="primary" onClick={() => {
-              if (statusConfirm) {
-                updateQuoteStatus(statusConfirm.id, statusConfirm.status);
-                setStatusConfirm(null);
-              }
-            }}>Confirm</Button>
-          </>
-        )}
-      >
-        <p>Changing the status to <strong>{statusConfirm?.status}</strong> will adjust the inventory stock. Do you want to proceed?</p>
-      </Modal>
-
-      <Modal
-        isOpen={!!deleteConfirm}
-        onClose={() => setDeleteConfirm(null)}
-        title="Delete Quote"
-        footer={(
-          <>
-            <Button variant="secondary" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
-            <Button variant="danger" onClick={() => {
-              if (deleteConfirm) {
-                deleteQuote(deleteConfirm);
-                setDeleteConfirm(null);
-              }
-            }}>Delete</Button>
-          </>
-        )}
-      >
-        <p>Are you sure you want to delete this quote? Stock will be restored if it was already accepted.</p>
-      </Modal>
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+        onConfirm={modalConfig.onConfirm}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        variant={modalConfig.variant}
+        confirmText={modalConfig.variant === 'danger' ? 'Delete' : 'Confirm'}
+      />
     </div>
   );
 }

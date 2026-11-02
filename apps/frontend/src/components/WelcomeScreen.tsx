@@ -192,11 +192,14 @@ export default function WelcomeScreen({ isDarkMode, onToggleTheme, onSignIn, onS
         </div>
 
         {/* Tabs */}
-        <div role="tablist" className="flex rounded-xl bg-slate-900/70 p-1 mb-6 border border-slate-800/50">
+        <div className="flex rounded-xl bg-slate-900/70 p-1 mb-6 border border-slate-800/50" role="tablist" aria-label="Authentication tabs">
           <button
             role="tab"
             aria-selected={tab === 'signin'}
             onClick={() => switchTab('signin')}
+            role="tab"
+            aria-selected={tab === 'signin'}
+            aria-controls="signin-panel"
             className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
               tab === 'signin'
                 ? 'bg-brand-500/20 text-brand-300 border border-brand-500/30 shadow-sm'
@@ -209,6 +212,9 @@ export default function WelcomeScreen({ isDarkMode, onToggleTheme, onSignIn, onS
             role="tab"
             aria-selected={tab === 'signup'}
             onClick={() => switchTab('signup')}
+            role="tab"
+            aria-selected={tab === 'signup'}
+            aria-controls="signup-panel"
             className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
               tab === 'signup'
                 ? 'bg-brand-500/20 text-brand-300 border border-brand-500/30 shadow-sm'
@@ -231,7 +237,7 @@ export default function WelcomeScreen({ isDarkMode, onToggleTheme, onSignIn, onS
             transition={{ type: 'spring', stiffness: 320, damping: 28 }}
           >
             {tab === 'signin' ? (
-              <form onSubmit={handleSignIn} className="space-y-4">
+              <form id="signin-panel" role="tabpanel" aria-labelledby="signin-tab" onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
                   <label htmlFor="signin-email" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Email</label>
                   <input
@@ -301,7 +307,7 @@ export default function WelcomeScreen({ isDarkMode, onToggleTheme, onSignIn, onS
                 </Button>
               </form>
             ) : (
-              <form onSubmit={handleSignUp} className="space-y-4">
+              <form id="signup-panel" role="tabpanel" aria-labelledby="signup-tab" onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
                   <label htmlFor="signup-email" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Email</label>
                   <input
