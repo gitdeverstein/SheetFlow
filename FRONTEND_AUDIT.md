@@ -1,249 +1,307 @@
-# Comprehensive Frontend Audit & Strategic Improvement Report
+# SheetFlow — Strategic Frontend Audit Report
 
-This document presents a thorough, professional, and actionable audit of the SheetFlow frontend application. It identifies architectural, UX, UI, performance, accessibility, and conversion improvements. Each finding includes its impact, a concrete technical solution with code examples where applicable, and estimated effort.
-
----
-
-## 1. Executive Summary
-
-SheetFlow is a modern, responsive web application built with React 19, Vite, Tailwind CSS 4, and Zustand. While the overall codebase exhibits strong performance characteristics and dynamic animation patterns (e.g., using Framer Motion), we identified several architectural, synchronizational, and design issues that limit its maturity as an enterprise-grade CRM and spreadsheet platform.
-
-Our analysis focuses on the following key areas:
-1. **Critical State Synchronization Delays** in the spreadsheet editing experience.
-2. **Bundle Bloat** caused by eager imports of heavy libraries (`jspdf`, `exceljs`).
-3. **Fragile Theme Specification** and localization gaps.
-4. **Accessibility (WCAG) Non-Compliance** on custom interactive elements.
-5. **Form Friction** in the quote builder.
-
-Implementing the recommended changes will result in:
-- **Faster Initial Page Load Times:** Reducing bundle chunk size by **>500KB**.
-- **Increased User Retention & Productivity:** Solving transient editing lag and eliminating clunky filter-then-select dropdown patterns.
-- **Enhanced Accessibility:** Assuring proper navigation for keyboard and screen-reader users.
+This document presents a comprehensive frontend audit of the SheetFlow monorepo application. It identifies architectural, performance, accessibility, UX, and design system issues, prioritizes them based on their impact-to-cost ratio, and offers concrete, production-ready code examples to resolve each findings.
 
 ---
 
-## 2. Prioritized Audit Findings
+## Executive Summary
 
-### 2.1 Critical Priority
+SheetFlow is built on a modern, robust tech stack: **React 19**, **Vite**, **Tailwind CSS 4**, **Framer Motion**, and **Zustand 5**. While the baseline codebase has excellent type-safety, modular hooks, and clean layouts, several critical architectural discrepancies, performance bottlenecks, and UX friction points exist:
 
-#### 1. Dual-State Synchronization Lag in Spreadsheet Grid
-*   **Problem:** In `SpreadsheetGrid.tsx`, the `rows` list is derived directly from the TanStack Query caches of `customers` and `inventory`:
-    ```typescript
-    const rows = useMemo(() => {
-      if (tab === 'crm') return customers.map(buildCrmRow);
-      if (tab === 'inventory') return inventory.map(buildInvRow);
-      return [];
-    }, [tab, customers, inventory]);
-    ```
-    However, cell modifications made via double-clicks are updated directly inside the local Zustand store slice (`updateSpreadsheetCell` modifies `state.rows[tab]`). Because `SpreadsheetGrid.tsx` completely ignores `state.rows[tab]` and renders exclusively from the cache-derived rows, edited values are not reflected dynamically in the grid interface until they are explicitly saved to the server and the cache refetches.
-*   **Impact:** Severe visual latency and editing desynchronization. Users will type a new value, blur the field, and watch the value temporarily revert to the original database state until they click the save icon. This is a critical usability failure.
-*   **Solution:** The spreadsheet grid should prioritize showing un-saved cell edits from the Zustand store's `state.rows[tab]`. If a row doesn't have local un-saved modifications, it should gracefully fall back to the TanStack Query data.
-    ```typescript
-    // Recommended Solution: Merge Zustand local row modifications with query cache data
-    const localRows = useSheetStore((state) => state.rows[tab]);
+1. **Spreadsheet state synchronization is broken**, rendering existing rows un-editable and newly added rows invisible.
+2. **Eager imports of heavy rendering libraries** (`jsPDF`, `ExcelJS`) bloat the initial bundle size, hurting page load speed.
+3. **Fragile styling patterns** (using `!important` color overrides in `index.css`) undermine the CSS design system.
+4. **Missing or incomplete features** like Guest Mode (which is documented in the README but completely missing from the UI) cause friction for user onboarding.
 
-    const rows = useMemo(() => {
-      const serverRows = tab === 'crm'
-        ? customers.map(buildCrmRow)
-        : inventory.map(buildInvRow);
+---
 
-      // Prefer local modified rows if they exist in state, else fall back to server data
-      return serverRows.map(serverRow => {
-        const localModified = localRows.find(r => r.id === serverRow.id);
-        return localModified ? localModified : serverRow;
+## Priority Audit Findings
+
+### Critical Priority
+
+#### 1. Broken Spreadsheet Dual-State Synchronization & Editing
+
+- **Problem:** In `SpreadsheetGrid.tsx`, the rows rendered in the grid are derived _directly_ from the TanStack Query cache (`customers` and `inventory`), completely bypassing the local Zustand `state.rows` which is updated during cell editing (`updateSpreadsheetCell`) and row creation (`addNewRow`).
+- **Impact:**
+  - When editing a cell and clicking away, the value instantly reverts to its cached query value (edits do not persist).
+  - Clicking "Add New Row" does not display anything in the UI because the new row exists in Zustand but not in the TanStack query data.
+  - Cell calculations/recalculations via formulas do not show up on the grid.
+- **Solution:** Establish a synchronization action in Zustand (`syncSpreadsheetRows`) that reconciles backend data with local edits (preserving unsaved edits and pending new rows), and consume Zustand's `state.rows[tab]` as the single source of truth for the `SpreadsheetGrid` rendering.
+- **Estimated Effort:** Medium (1-2 hours)
+- **Code Example (Reconciliation in `spreadsheetSlice.ts`):**
+
+  ```typescript
+  // 1. Add to the SpreadsheetSlice interface:
+  syncSpreadsheetRows: (tab: 'crm' | 'inventory', queryRows: SheetRow[]) => void;
+
+  // 2. Implement the action in createSpreadsheetSlice:
+  syncSpreadsheetRows: (tab, queryRows) => {
+    set((state: SheetStoreState) => {
+      const localRows = state.rows[tab] || [];
+      const localRowsMap = new Map(localRows.map(r => [r.id, r]));
+
+      const reconciledRows = queryRows.map((qRow) => {
+        const localRow = localRowsMap.get(qRow.id);
+        if (!localRow) return qRow;
+
+        // If row is modified locally but not yet saved, preserve the local edits.
+        // Otherwise, accept the latest database values (e.g., after successful save).
+        const hasUnsavedEdits = JSON.stringify(localRow.cells) !== JSON.stringify(qRow.cells);
+        if (hasUnsavedEdits && !localRow.isNew) {
+          return localRow;
+        }
+        return qRow;
       });
-    }, [tab, customers, inventory, localRows]);
-    ```
-*   **Estimated Effort:** Medium (4–6 hours)
 
----
+      // Maintain any new unsaved rows at the top
+      const newRows = localRows.filter(r => r.id.startsWith('new-'));
 
-### 2.2 High Priority
-
-#### 2. Eager Imports of Heavy Libraries (`jspdf`, `exceljs`) Triggering Bundle Warnings
-*   **Problem:** Large third-party libraries `jspdf` and `exceljs` are eagerly imported at the top level of `apps/frontend/src/utils/exportUtils.ts`:
-    ```typescript
-    import jsPDF from 'jspdf';
-    import autoTable from 'jspdf-autotable';
-    import ExcelJS from 'exceljs';
-    ```
-    These bundles total over 500KB of minified JS, leading to build-time bundle size alerts from Vite/Rolldown during production compilation.
-*   **Impact:** Bloats the initial Javascript bundle delivered to every user on landing, increasing Time-to-Interactive (TTI) and degrading performance scores on low-end networks or mobile devices.
-*   **Solution:** Convert these heavy static imports into dynamic `import()` modules that are lazily fetched only when the user clicks the "PDF" or "Excel" buttons on the KPI Dashboard.
-    ```typescript
-    // Code Refactoring Example: Lazy loading in exportUtils.ts
-    export async function exportQuotePdf(quote: ExportFullQuote): Promise<void> {
-      // Dynamically load the libraries
-      const [ { default: jsPDF }, { default: autoTable } ] = await Promise.all([
-        import('jspdf'),
-        import('jspdf-autotable')
-      ]);
-
-      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-      // ... pdf generation logic remains identical
-    }
-    ```
-*   **Estimated Effort:** Low (1–2 hours)
-
-#### 3. Brittle and Inflexible Theme Specifying CSS Specifier Hack (`!important` Overrides)
-*   **Problem:** Light mode text visibility is managed via a brittle stylesheet hack in `apps/frontend/src/index.css`:
-    ```css
-    .light :is(.text-white, .hover\:text-white:hover):not(button):not([type="button"]):not([type="submit"]):not(.text-white-keep):not(.text-white-icon) {
-      color: #020617 !important;
-    }
-    ```
-*   **Impact:** Breaks CSS specificity rules and creates high developer friction. When adding new elements in light mode, text colored with utility classes like `text-white` is forcefully overridden to dark slate, making selective light/dark designs or custom card headers extremely difficult to style without writing custom override selectors.
-*   **Solution:** Replace global, heavy `!important` color forcing with a systematic CSS Custom Property variable structure, or native Tailwind `dark:` classes. Define semantic color variables (e.g., `--color-text-primary`) on `:root` and `:root.light` and use Tailwind's configuration utility or standard class modifiers.
-*   **Estimated Effort:** Medium (4–8 hours)
-
-#### 4. High-Friction "Filter-then-Select" Form UX in Quote Builder
-*   **Problem:** In `QuoteGenerator.tsx`, filtering customers or products requires typing in a standalone text input field, then moving focus down to a separate select element to click the filtered options.
-*   **Impact:** Creates double interaction costs (form friction). Users must type, then reposition their cursor, click the select box, and select the item, leading to a frustrating experience.
-*   **Solution:** Replace the dual-element filter with a single unified searchable Combobox/Autocomplete component (using standard listbox components or simple inline list-based filters).
-*   **Estimated Effort:** Medium (3–5 hours)
-
----
-
-### 2.3 Medium Priority
-
-#### 5. Missing Accessible Semantics (ARIA) on StatusPill and OverflowMenu Components
-*   **Problem:** Interactive UI controls like the dashboard's `StatusPill` transitions and mobile `OverflowMenu` behave like customized select menus but lack proper screen reader attributes (`aria-haspopup`, `aria-expanded`, `aria-label`).
-*   **Impact:** Visually-impaired screen-reader users cannot identify that these components are expandable menu triggers, leading to accessibility barriers.
-*   **Solution:** Add ARIA landmarks, roles, and focus handlers to the custom buttons.
-    ```typescript
-    // Code Refactoring Example for StatusPill:
-    <button
-      onClick={() => transitions.length > 0 && setOpen(o => !o)}
-      aria-haspopup="listbox"
-      aria-expanded={open}
-      aria-label={`Change status from ${status}`}
-      className="..."
-    >
-      {/* ... */}
-    </button>
-    ```
-*   **Estimated Effort:** Low (2 hours)
-
-#### 6. Missing Virtualized Row reconciliation (`itemKey` Prop in react-window)
-*   **Problem:** In `SpreadsheetGrid.tsx`, the virtualized list `<List>` does not supply an `itemKey` prop to uniquely identify rows during render. React prints errors in the browser console: "Each child in a list should have a unique 'key' prop."
-*   **Impact:** Performance degradation during spreadsheet updates. Every keystroke or cell change forces react-window to completely unmount and remount row structures instead of performing key-based reconciliation.
-*   **Solution:** Pass the custom `itemKey` prop to the react-window `<List>` component to map directly to the row identifiers.
-    ```typescript
-    <List
-      height={Math.min(paginatedRows.length * 48, 600)}
-      itemCount={paginatedRows.length}
-      itemSize={48}
-      width="100%"
-      overscanCount={5}
-      itemKey={(index) => paginatedRows[index]?.id || index}
-    >
-      {/* ... */}
-    </List>
-    ```
-*   **Estimated Effort:** Low (1 hour)
-
-#### 7. Hardcoded French Localization Elements in an English Interface
-*   **Problem:** Hardcoded French words exist in the application: `'Succès'` in `App.tsx` (the micro-notification toaster heading) and `'Enregistré !'` in `QuoteGenerator.tsx` (the success confirmation on the quote creation form).
-*   **Impact:** Disrupts design system consistency. English-speaking users will experience a sudden mix of language terms, which decreases user trust.
-*   **Solution:** Replace French strings with English equivalents like `'Success'` and `'Saved!'`, or define standard localized constants.
-*   **Estimated Effort:** Low (0.5 hours)
-
----
-
-### 2.4 Low Priority
-
-#### 8. Relying on Heavy Native Dialogues (`window.confirm`) for Business-Critical Actions
-*   **Problem:** The app uses native blocking `window.confirm` modals when deleting rows, creating quotes, or changing statuses to "Accepted".
-*   **Impact:** Disrupts the clean, custom aesthetic of the Framer Motion glassmorphism interface, creating a jarring UX.
-*   **Solution:** Replace native confirms with a reusable custom confirmation dialog modal (`ConfirmModal.tsx`) using Framer Motion's `AnimatePresence`.
-*   **Estimated Effort:** Low (2–3 hours)
-
-#### 9. Absence of B2B Onboarding Flow & Metric Insights
-*   **Problem:** The first-time user dashboard has zero interactive onboarding steps or tooltip guides.
-*   **Impact:** High drop-off rates on sign-up (conversion and engagement). First-time users see blank metrics ("$0.00") without visual indicators of how to seed their first client sheet.
-*   **Solution:** Add a subtle "Onboarding Guide" card with three clickable steps: 1) "Add your first client", 2) "Track stock items", 3) "Draft a quote".
-*   **Estimated Effort:** Low (2–3 hours)
-
-#### 10. Donut Chart Color Palette Inconsistency in Light Mode
-*   **Problem:** In `Dashboard.tsx`, the `DonutChart` renders status slices with hardcoded hex colors (`#64748b`, `#3b82f6`, etc.) rather than reading them from CSS variables or Tailwind utility classes.
-*   **Impact:** Lack of color coordination when switching themes. The chart segments do not adjust to complement Light Mode palettes properly.
-*   **Solution:** Pass Tailwind theme CSS variables to the inline SVG drawing methods.
-*   **Estimated Effort:** Low (1 hour)
-
----
-
-## 3. High-Impact Refactoring & Optimization Code Examples
-
-### 3.1 Dynamic Imports for Bundle Optimization
-
-The following snippet shows how to refactor `apps/frontend/src/utils/exportUtils.ts` to defer loading heavy PDF and Excel dependencies:
-
-```typescript
-// BEFORE:
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import ExcelJS from 'exceljs';
-
-// AFTER (Optimized):
-export async function exportQuotePdf(quote: ExportFullQuote): Promise<void> {
-  // Load heavy libs on-demand
-  const jsPDFModule = await import('jspdf');
-  const autoTableModule = await import('jspdf-autotable');
-
-  const doc = new jsPDFModule.default({ unit: 'mm', format: 'a4' });
-  const autoTable = autoTableModule.default;
-
-  // PDF layout and table generation code goes here...
-  doc.save(`${quote.quoteNumber}.pdf`);
-}
-```
-
-### 3.2 Resolving the Spreadsheet Grid State Sync Issue
-
-The following represents the recommended architectural correction in `SpreadsheetGrid.tsx` to handle unsaved Zustand changes:
-
-```typescript
-// SpreadsheetGrid.tsx
-import { useSheetStore } from '../store/sheetStore.js';
-
-export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
-  const { rows: stateRows } = useSheetStore(); // Zustand state rows
-  const { data: serverCustomers = [] } = useCustomers();
-  const { data: serverInventory = [] } = useInventory();
-
-  const rows = useMemo(() => {
-    // 1. Get raw rows from database cache
-    const baseRows = tab === 'crm'
-      ? serverCustomers.map(buildCrmRow)
-      : serverInventory.map(buildInvRow);
-
-    // 2. Overlay any local, un-saved modifications sitting in Zustand
-    return baseRows.map((serverRow) => {
-      const activeStateRow = stateRows[tab].find((r) => r.id === serverRow.id);
-      return activeStateRow ? activeStateRow : serverRow;
+      return {
+        rows: {
+          ...state.rows,
+          [tab]: [...newRows, ...reconciledRows]
+        }
+      };
     });
-  }, [tab, serverCustomers, serverInventory, stateRows]);
+  }
+  ```
+  - **Consumption in `SpreadsheetGrid.tsx`:**
 
-  // Render grid using resolved rows...
-}
-```
+  ```typescript
+  const rows = useSheetStore((state) => state.rows[tab] || []);
+  const syncSpreadsheetRows = useSheetStore((state) => state.syncSpreadsheetRows);
+
+  const queryRows = useMemo(() => {
+    if (tab === 'crm') return customers.map(buildCrmRow);
+    if (tab === 'inventory') return inventory.map(buildInvRow);
+    return [];
+  }, [tab, customers, inventory]);
+
+  useEffect(() => {
+    if (queryRows.length > 0) {
+      syncSpreadsheetRows(tab, queryRows);
+    }
+  }, [tab, queryRows, syncSpreadsheetRows]);
+  ```
+
+#### 2. Eager Imports of Heavy Libraries (`jsPDF`, `ExcelJS`) Bloating Initial Bundle Size
+
+- **Problem:** In `apps/frontend/src/utils/exportUtils.ts`, heavy external libraries `jsPDF`, `jspdf-autotable`, and `ExcelJS` are eagerly imported at the top of the file. Since this utility file is imported by `Dashboard.tsx`, these libraries are compiled into the main application bundle.
+- **Impact:** Initial JavaScript bundle size is bloated by over **1.2 MB** of unzipped JS, severely slowing down the Initial Page Load, First Contentful Paint (FCP), and Time to Interactive (TTI), directly hurting SEO performance scores and user conversion rates.
+- **Solution:** Convert these utility imports to **dynamic imports** that are resolved only when the user explicitly triggers an export action.
+- **Estimated Effort:** Low (15 minutes)
+- **Code Example (`exportUtils.ts`):**
+
+  ```typescript
+  // Replace eager imports at the top with dynamic resolution:
+  export async function exportQuotePdf(quote: ExportFullQuote): Promise<void> {
+    // Dynamically import libraries inside the action handler
+    const [ { default: jsPDF }, { default: autoTable } ] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable')
+    ]);
+
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    // ... rest of PDF generation code ...
+    autoTable(doc, { ... });
+    doc.save(`${quote.quoteNumber}.pdf`);
+  }
+
+  export async function exportQuoteExcel(quote: ExportFullQuote): Promise<void> {
+    const { default: ExcelJS } = await import('exceljs');
+    const workbook = new ExcelJS.Workbook();
+    // ... rest of Excel generation code ...
+  }
+  ```
 
 ---
 
-## 4. Top 10 Most Cost-Effective Improvements to Implement
+### High Priority
 
-| Rank | Improvement | Target Category | Business Impact | Dev Cost (Effort) |
-|---|---|---|---|---|
-| **1** | Resolve Grid State Sync | User Experience (UX) | Fixes major lag/desync, making editing instantly snappy and reactive. | Medium (4h) |
-| **2** | Dynamic Imports for Exports | Performance | Shaves **>500KB** off initial JS payload, reducing landing load times. | Low (1.5h) |
-| **3** | Unified Combobox Dropdown | UX / UI | Removes clunky dual-input pattern in Quote Builder. | Low (2h) |
-| **4** | Fix French Hardcoded Labels | Design Consistency | Assures pristine English locale alignment. | Low (0.5h) |
-| **5** | Add `itemKey` to react-window | Performance | Resolves React warning and stabilizes row cell updates. | Low (0.5h) |
-| **6** | ARIA Landmarks on Dropdowns | Accessibility (a11y) | Restores WCAG keyboard compliance for custom popup menus. | Low (1h) |
-| **7** | Refactor index.css theme hack | Code Maintainability | Eliminates `!important` overriding, cleaning up style specificity. | Medium (5h) |
-| **8** | Custom `ConfirmModal` | UX / UI | Replaces jarring browser popups with polished animations. | Low (2h) |
-| **9** | Interactive Onboarding Card | Conversion Rates | Guides first-time clients directly through the active pipeline. | Low (2h) |
-| **10**| Dynamic Donut Chart Colors | Design System | Aligns dashboard metrics with Light/Dark theme variables. | Low (1h) |
+#### 3. Fragile Global CSS Specificity & `!important` Color Overrides
+
+- **Problem:** In `apps/frontend/src/index.css`, the theme synchronization for light mode relies on a heavy global selector override utilizing an `!important` flag to force color inversion on white text classes:
+  ```css
+  .light :is(.text-white, .hover\:text-white:hover)... {
+    color: #020617 !important;
+  }
+  ```
+- **Impact:** This approach creates massive technical styling debt, breaks semantic colors across dashboard components, makes targeted custom styling of specific elements near-impossible, and violates Tailwind CSS 4 architecture best practices.
+- **Solution:** Standardize the styling by mapping the layout and component-level elements to dynamic Tailwind theme color utilities that resolve automatically using CSS Custom Properties (Variables), instead of using forced global overrides.
+- **Estimated Effort:** Medium (1 hour)
+- **Code Example (`index.css` & component usage):**
+
+  ```css
+  /* Instead of overrides, declare functional semantic custom properties under each theme */
+  :root {
+    --color-text-primary: #f8fafc; /* Dark mode primary */
+    --color-text-secondary: #94a3b8;
+    --color-bg-card: rgba(15, 23, 42, 0.65);
+  }
+
+  :root.light {
+    --color-text-primary: #0f172a; /* Light mode primary */
+    --color-text-secondary: #475569;
+    --color-bg-card: rgba(255, 255, 255, 0.75);
+  }
+  ```
+
+#### 4. Discrepancy between Documentation and Welcome Screen (Missing "Guest Mode")
+
+- **Problem:** The repository `README.md` documents a "Mode invité sans authentification" (Guest Mode without authentication) allowing users to test SheetFlow without credentials. However, this option is completely missing from the authentication forms in `WelcomeScreen.tsx`.
+- **Impact:** Missed opportunity for zero-friction user onboarding. Users are forced to sign up or log in immediately, resulting in lower conversion rates and evaluation engagement.
+- **Solution:** Add a "Continue as Guest" link/button in `WelcomeScreen.tsx` that triggers a mock/local session or signs the user in with a demo account automatically.
+- **Estimated Effort:** Low (30 minutes)
+- **Code Example (`WelcomeScreen.tsx`):**
+  ```tsx
+  {
+    /* Add a beautiful Guest Mode link at the bottom of the form card */
+  }
+  <div className="text-center mt-6">
+    <button
+      type="button"
+      onClick={handleContinueAsGuest}
+      className="text-xs text-brand-400 hover:text-brand-300 font-semibold transition-colors cursor-pointer"
+    >
+      ⚡ Or continue as Guest (No account needed)
+    </button>
+  </div>;
+  ```
+
+#### 5. User Friction due to Browser-Blocking `window.confirm()` Dialogs
+
+- **Problem:** The system relies on native browser `window.confirm()` dialogs in `Dashboard.tsx` and `SpreadsheetGrid.tsx` for destructive operations (e.g., deleting quotes, deleting rows) or critical business state transitions (e.g., marking quotes "Accepted").
+- **Impact:** Native dialogs block the main Javascript thread, feel disjointed and unstyled in an otherwise highly polished animation layout (Framer Motion), and hurt modern product aesthetics.
+- **Solution:** Replace native confirmations with a custom, high-fidelity Framer Motion `ConfirmModal.tsx` that coordinates seamlessly with React and Zustand state.
+- **Estimated Effort:** Low-Medium (45 minutes)
+- **Code Example (`ConfirmModal.tsx`):**
+
+  ```tsx
+  import { motion, AnimatePresence } from 'framer-motion';
+
+  interface ConfirmModalProps {
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+  }
+
+  export default function ConfirmModal({ isOpen, title, message, onConfirm, onCancel }: ConfirmModalProps) {
+    return (
+      <AnimatePresence>
+        {isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
+              onClick={onCancel}
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="glass-panel max-w-sm w-full p-6 rounded-2xl border border-slate-800 shadow-2xl z-10"
+            >
+              <h3 className="text-lg font-semibold text-white">{title}</h3>
+              <p className="text-sm text-slate-400 mt-2">{message}</p>
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={onCancel}
+                  className="px-4 py-2 text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={onConfirm}
+                  className="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors"
+                >
+                  Confirm
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    );
+  }
+  ```
 
 ---
-*Report Compiled By: Jules (Principal Software Engineer)*
+
+### Medium Priority
+
+#### 6. Missing React Key Warnings in Virtualized Spreadsheet Rows
+
+- **Problem:** In `SpreadsheetGrid.tsx`, the `react-window` `List` component is rendered without an explicit `itemKey` prop.
+- **Impact:**
+  - Triggers standard React warnings in console on every scroll and cell update.
+  - Causes inefficient DOM element reconciliation (rebuilding row DOM nodes from scratch) during formula evaluations and cell edits, resulting in laggy input feel in large data sheets.
+- **Solution:** Pass a unique `itemKey` identifier to the `List` component derived from the stable row IDs.
+- **Estimated Effort:** Low (5 minutes)
+- **Code Example (`SpreadsheetGrid.tsx`):**
+  ```tsx
+  <List
+    height={Math.min(paginatedRows.length * 48, 600)}
+    itemCount={paginatedRows.length}
+    itemSize={48}
+    width="100%"
+    overscanCount={5}
+    itemKey={(index) => paginatedRows[index]?.id || index} /* Added unique itemKey */
+  >
+  ```
+
+#### 7. Localization Flaws with Hardcoded French Labels in an English UI
+
+- **Problem:** The entire web app layout is in English, but multiple French strings remain hardcoded:
+  - In `App.tsx`: `toast.type === 'success' ? 'Succès' : toast.type`
+  - In `QuoteGenerator.tsx`: Save action feedback button text resolves to `'Enregistré !'` instead of `'Saved!'`.
+- **Impact:** Negative perception of UI polish, giving an incomplete or unprofessional look to international evaluators.
+- **Solution:** Replace these occurrences with clean, consistent English string constants.
+- **Estimated Effort:** Low (5 minutes)
+
+#### 8. SVG Donut Chart Theme Sync Gap (Hardcoded Colors)
+
+- **Problem:** In `Dashboard.tsx`, the status distribution donut chart uses hardcoded hex values (`#64748b`, `#3b82f6`, `#10b981`, `#f43f5e`) that are unreadable or visually inconsistent when switching to Light Mode.
+- **Impact:** Lack of cohesion in the visual hierarchy when themes are toggled, directly affecting the dashboard aesthetics.
+- **Solution:** Map the chart stroke colors dynamically using Tailwind-provided CSS custom variables.
+- **Estimated Effort:** Low (15 minutes)
+
+---
+
+### Low Priority
+
+#### 9. Responsive Mobile Layout Overflow in Spreadsheet Grid
+
+- **Problem:** The spreadsheet grid uses a hardcoded wrapper size of `min-w-[800px]` directly inside the layout wrapper.
+- **Impact:** While the layout handles desktop and tablet, mobile users experience severe horizontal page breaking and side scrolling of the _entire_ dashboard.
+- **Solution:** Ensure the parent container utilizes `w-full overflow-x-auto` to isolate horizontal scroll _exclusively_ to the table contents, keeping the app navbar and page header fully static.
+- **Estimated Effort:** Low (15 minutes)
+
+#### 10. Lack of WCAG Accessibility Attributes on Dropdowns and Pill Triggers
+
+- **Problem:** Navigation components (like `StatusPill` dropdown, `OverflowMenu`, and theme togglers) use plain `<div>` or `<button>` tags without structural keyboard hooks or ARIA support.
+- **Impact:** Poor accessibility scores (Lighthouse), non-compliance with screen-reader capabilities, and difficult keyboard accessibility navigation.
+- **Solution:** Add standard `aria-haspopup="true"`, `aria-expanded={open}`, semantic labels (`aria-label`), and robust focus-visible keyboard styling.
+- **Estimated Effort:** Low (30 minutes)
+
+---
+
+## The Top 10 Most Cost-Effective Improvements to Implement
+
+Below is a prioritized list of the **top 10 most cost-effective improvements** to maximize the application's overall performance, UX/UI, accessibility, and conversion scores with minimal engineering effort:
+
+|  Rank  | Improvement                              |   Priority   |    Category     | Primary Benefit                                    | Effort  |
+| :----: | :--------------------------------------- | :----------: | :-------------: | :------------------------------------------------- | :-----: |
+| **1**  | **Spreadsheet State Sync Fix**           | **Critical** |  Architecture   | Fully functional spreadsheet edits & row creation  | Medium  |
+| **2**  | **Dynamic Imports for jsPDF / ExcelJS**  | **Critical** |   Performance   | **-1.2MB** off initial bundle, instant load speed  |   Low   |
+| **3**  | **English localization alignment**       |   **High**   | UI Consistency  | Professional and clean brand presentation          |   Low   |
+| **4**  | **Add documented Guest Mode**            |   **High**   |   Conversion    | Eliminates registration friction for testers       | Low-Med |
+| **5**  | **Custom Confirm Modal**                 |   **High**   | User Experience | Fluid, branded, and non-blocking confirmations     | Low-Med |
+| **6**  | **react-window `itemKey` Addition**      |  **Medium**  | Perf & Quality  | Eliminates console warnings & improves list scroll |   Low   |
+| **7**  | **Fix hardcoded colors in SVG Donut**    |  **Medium**  |  Design System  | Flawless dark/light contrast integration           |   Low   |
+| **8**  | **Isolate Grid horizontal overflow**     |  **Medium**  |   Responsive    | Smooth mobile experience without page breaking     |   Low   |
+| **9**  | **Refactor global CSS !important hacks** |   **High**   | Maintainability | Highly modular and clean theme codebase            | Medium  |
+| **10** | **Add WCAG ARIA labels to menus**        |   **Low**    |  Accessibility  | High compliance scores & screen-reader support     |   Low   |

@@ -66,10 +66,12 @@ describe('priceService', () => {
       { productId: 'p1', name: 'Item 1', quantity: 2, unitPrice: 0 },
       { productId: 'p2', name: 'Item 2', quantity: 1, unitPrice: 0 },
     ];
-    mockDb.select.mockReturnValue(qb([
-      { id: 'p1', price: '25.00' },
-      { id: 'p2', price: '15.00' },
-    ]));
+    mockDb.select.mockReturnValue(
+      qb([
+        { id: 'p1', price: '25.00' },
+        { id: 'p2', price: '15.00' },
+      ]),
+    );
     const result = await resolveCatalogPrices(items);
     expect(result).toHaveLength(2);
     expect(result[0].unitPrice).toBe(25);

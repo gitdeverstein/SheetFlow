@@ -20,14 +20,14 @@ export const DEFAULT_PAGE_SIZE = 50;
 export const MAX_PAGE_SIZE = 100;
 
 // ── Tax Constants ───────────────────────────────────────────────────────────
-export const TAX_RATE = 0.20 as const; // 20% VAT
+export const TAX_RATE = 0.2 as const; // 20% VAT
 export const TAX_RATE_LABEL = 'VAT (20%)' as const;
 
 // ── CRM schemas ─────────────────────────────────────────────────────────────
 export const CustomerSchema = z.object({
   id: z.string().uuid().optional(),
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email('Invalid email address'),
   phone: z.string().optional(),
   company: z.string().optional(),
   status: z.enum(CUSTOMER_STATUSES).default('Lead'),
@@ -40,11 +40,11 @@ export type Customer = z.infer<typeof CustomerSchema>;
 // ── Inventory schemas ───────────────────────────────────────────────────────
 export const InventoryItemSchema = z.object({
   id: z.string().uuid().optional(),
-  sku: z.string().min(3, "SKU must be at least 3 characters"),
-  name: z.string().min(2, "Product name must be at least 2 characters"),
-  stock: z.number().int().nonnegative("Stock cannot be negative"),
-  alertThreshold: z.number().int().nonnegative("Alert threshold cannot be negative"),
-  price: z.number().positive("Price must be greater than 0"),
+  sku: z.string().min(3, 'SKU must be at least 3 characters'),
+  name: z.string().min(2, 'Product name must be at least 2 characters'),
+  stock: z.number().int().nonnegative('Stock cannot be negative'),
+  alertThreshold: z.number().int().nonnegative('Alert threshold cannot be negative'),
+  price: z.number().positive('Price must be greater than 0'),
   createdAt: z.string().or(z.date()).optional(),
 });
 
@@ -53,9 +53,9 @@ export type InventoryItem = z.infer<typeof InventoryItemSchema>;
 // ── Quote schemas ───────────────────────────────────────────────────────────
 export const QuoteItemSchema = z.object({
   productId: z.string().uuid(),
-  name: z.string().min(1, "Product name is required"),
-  quantity: z.number().int().positive("Quantity must be at least 1"),
-  unitPrice: z.number().positive("Unit price must be positive"),
+  name: z.string().min(1, 'Product name is required'),
+  quantity: z.number().int().positive('Quantity must be at least 1'),
+  unitPrice: z.number().positive('Unit price must be positive'),
 });
 
 export const QuoteSchema = z.object({

@@ -35,12 +35,15 @@ app.use('/api/auth/*', rateLimiter({
 }));
 
 // Global Middleware
-app.use('*', rateLimiter({
-  windowMs: env.RATE_LIMIT_WINDOW_MS,
-  limit: env.RATE_LIMIT_MAX,
-  message: { error: 'Too many requests' },
-  keyGenerator: (c) => c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || 'unknown',
-}));
+app.use(
+  '*',
+  rateLimiter({
+    windowMs: env.RATE_LIMIT_WINDOW_MS,
+    limit: env.RATE_LIMIT_MAX,
+    message: { error: 'Too many requests' },
+    keyGenerator: (c) => c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || 'unknown',
+  }),
+);
 
 // Security Headers
 app.use('*', async (c, next) => {
@@ -76,14 +79,17 @@ app.use('*', async (c, next) => {
 app.use('*', bodyLimit({ maxSize: 100 * 1024 }));
 
 app.use('*', requestLogger);
-app.use('*', cors({
-  origin: env.ALLOWED_ORIGINS?.split(','),
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
-  exposeHeaders: ['Content-Length', 'X-Total-Count'],
-  maxAge: 600,
-  credentials: true,
-}));
+app.use(
+  '*',
+  cors({
+    origin: env.ALLOWED_ORIGINS?.split(','),
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization'],
+    exposeHeaders: ['Content-Length', 'X-Total-Count'],
+    maxAge: 600,
+    credentials: true,
+  }),
+);
 
 // Auth routes (public — no authMiddleware)
 app.route('/api/auth', authRouter);
@@ -134,7 +140,7 @@ app.onError((err, c) => {
   if (err instanceof Error && 'errors' in err) {
     const issues = (err as { errors?: Array<{ path: (string | number)[]; message: string }> }).errors;
     if (Array.isArray(issues)) {
-      const fields = issues.map(i => `${i.path.join('.') || 'value'}: ${i.message}`).join('; ');
+      const fields = issues.map((i) => `${i.path.join('.') || 'value'}: ${i.message}`).join('; ');
       return c.json({ error: `Validation failed — ${fields}` }, 400);
     }
     return c.json({ error: 'Invalid data' }, 400);
@@ -149,12 +155,15 @@ app.onError((err, c) => {
 app.notFound((c) => c.json({ error: `Route not found: ${c.req.method} ${c.req.path}` }, 404));
 
 const port = Number(env.PORT) || 3000;
-serve({
-  fetch: app.fetch,
-  port,
-}, (info) => {
-  console.log(`Server is running on http://localhost:${info.port}`);
-});
+serve(
+  {
+    fetch: app.fetch,
+    port,
+  },
+  (info) => {
+    console.log(`Server is running on http://localhost:${info.port}`);
+  },
+);
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
@@ -186,5 +195,7 @@ process.on('unhandledRejection', (reason) => {
 
 process.on('uncaughtException', (err) => {
   console.error('UNCAUGHT EXCEPTION:', err);
-  closeDb().catch(() => {}).finally(() => process.exit(1));
+  closeDb()
+    .catch(() => {})
+    .finally(() => process.exit(1));
 });
