@@ -43,8 +43,7 @@ export async function login(page: Page, email: string, password: string): Promis
 
   await emailInput.fill(email);
   await page.locator('input[type="password"]').fill(password);
-  // Both the tab switcher and the submit button have the same name. We target the last one (the submit button).
-  await page.getByRole('button', { name: /sign in|login|log in/i }).last().click();
+  await page.locator('form').getByRole('button', { name: /sign in|login|log in/i }).click();
 
   // Wait for the dashboard to load
   await page.getByRole('heading', { name: /Real-time KPIs/i }).waitFor({ timeout: 15000 });
