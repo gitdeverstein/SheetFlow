@@ -241,7 +241,7 @@ function safeEval(expr: string): number | null {
     while (true) {
       const ch = peek();
       if (ch === '*') { consume(); left *= parseFactor(); }
-      else if (ch === '/') { consume(); const right = parseFactor(); if (right === 0) throw new Error('Division par zéro'); left /= right; }
+      else if (ch === '/') { consume(); const right = parseFactor(); if (right === 0) throw new Error('Division by zero'); left /= right; }
       else break;
     }
     return left;

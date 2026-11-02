@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSheetStore } from '../store/sheetStore.js';
 import { useCustomers } from '../hooks/useCustomers.js';
 import { useInventory } from '../hooks/useInventory.js';
 import { useQuotes } from '../hooks/useQuotes.js';
+import { useOutsideClick } from '../hooks/useOutsideClick.js';
 import { Users, Package, FileText, AlertTriangle, Download, FileSpreadsheet, Loader2, Trash2, Edit3, Copy, MoreHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QUOTE_STATUS_TRANSITIONS } from '@sheetflow/shared';
@@ -15,6 +16,13 @@ const STATUS_COLORS: Record<string, string> = {
   Sent: '#3b82f6',
   Accepted: '#10b981',
   Rejected: '#f43f5e',
+};
+
+const KPI_STYLES: Record<string, { bg: string; text: string }> = {
+  emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-400' },
+  brand: { bg: 'bg-sky-500/10', text: 'text-sky-400' },
+  purple: { bg: 'bg-purple-500/10', text: 'text-purple-400' },
+  amber: { bg: 'bg-amber-500/10', text: 'text-amber-400' },
 };
 
 function DonutChart({ data }: { data: Record<string, number> }) {
@@ -37,7 +45,7 @@ function DonutChart({ data }: { data: Record<string, number> }) {
 
   return (
     <div className="flex items-center gap-6">
-      <svg width="120" height="120" viewBox="0 0 120 120">
+      <svg width="120" height="120" viewBox="0 0 120 120" aria-label="Quote status donut chart">
         {slices.map((s) => (
           <circle
             key={s.status}
@@ -75,21 +83,17 @@ const STATUS_PILL: Record<string, string> = {
 
 function StatusPill({ status, transitions, onChange }: { status: string; transitions: readonly string[]; onChange: (s: string) => void }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  const ref = useOutsideClick<HTMLDivElement>(() => setOpen(false), open);
   return (
     <div ref={ref} className="relative inline-block">
       <button
         onClick={() => transitions.length > 0 && setOpen(o => !o)}
+        aria-label={`Change quote status from ${status}`}
         className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full border transition-colors ${STATUS_PILL[status] ?? 'bg-slate-700 text-slate-300 border-slate-600'} ${transitions.length > 0 ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
       >
         <span className={`w-1.5 h-1.5 rounded-full ${STATUS_COLORS[status] ? '' : 'bg-slate-400'}`} style={{ backgroundColor: STATUS_COLORS[status] }} />
         {status}
-        {transitions.length > 0 && <span className="opacity-60">▾</span>}
+        {transitions.length > 0 && <span className="opacity-60" aria-hidden="true">▾</span>}
       </button>
       <AnimatePresence>
         {open && (
@@ -97,7 +101,7 @@ function StatusPill({ status, transitions, onChange }: { status: string; transit
             className="absolute left-0 top-full mt-1 z-30 bg-slate-900 border border-slate-700 rounded-xl shadow-xl min-w-[110px] overflow-hidden">
             {transitions.map(s => (
               <button key={s} onClick={() => { onChange(s); setOpen(false); }}
-                className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-slate-800 transition-colors flex items-center gap-2 ${STATUS_PILL[s] ? 'text-slate-200' : 'text-slate-300'}`}>
+                className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-slate-800 transition-colors flex items-center gap-2 cursor-pointer ${STATUS_PILL[s] ? 'text-slate-200' : 'text-slate-300'}`}>
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[s] }} />{s}
               </button>
             ))}
@@ -111,15 +115,10 @@ function StatusPill({ status, transitions, onChange }: { status: string; transit
 // ── Overflow menu ─────────────────────────────────────────────────────────────
 function OverflowMenu({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  const ref = useOutsideClick<HTMLDivElement>(() => setOpen(false), open);
   return (
     <div ref={ref} className="relative sm:hidden">
-      <button onClick={() => setOpen(o => !o)} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
+      <button onClick={() => setOpen(o => !o)} aria-label="More actions" className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer">
         <MoreHorizontal size={16} />
       </button>
       <AnimatePresence>
@@ -166,7 +165,7 @@ export default function Dashboard() {
 
   const totalCustomers = customers.length;
   const totalProducts = inventory.length;
-  const lowStockAlerts = inventory.filter((item: { stock: unknown; alertThreshold: unknown }) => Number(item.stock) < Number(item.alertThreshold)).length;
+  const lowStockAlerts = inventory.filter((item) => Number(item.stock) < Number(item.alertThreshold)).length;
 
   // Quote status counts for donut chart
   const statusCounts = useMemo(() => {
@@ -184,23 +183,30 @@ export default function Dashboard() {
 
   const revenue = useMemo(
     () => quotes
-      .filter((q: { status: string }) => q.status === 'Accepted')
-      .reduce((sum: number, q: { total: string }) => sum + parseFloat(q.total), 0),
+      .filter((q) => q.status === 'Accepted')
+      .reduce((sum: number, q) => sum + (parseFloat(q.total) || 0), 0),
     [quotes]
   );
 
   useEffect(() => {
-    let start = 0;
     const end = revenue;
-    if (end === 0) { setAnimatedRevenue(0); return; } // eslint-disable-line react-hooks/set-state-in-effect
+    if (end === 0) {
+      const t = setTimeout(() => setAnimatedRevenue(0), 0);
+      return () => clearTimeout(t);
+    }
+    let start = 0;
     const duration = 400;
     const stepTime = 16;
     const steps = duration / stepTime;
     const increment = end / steps;
     const timer = setInterval(() => {
       start += increment;
-      if (start >= end) { setAnimatedRevenue(end); clearInterval(timer); }
-      else setAnimatedRevenue(Math.floor(start));
+      if (start >= end) {
+        setAnimatedRevenue(end);
+        clearInterval(timer);
+      } else {
+        setAnimatedRevenue(Math.floor(start));
+      }
     }, stepTime);
     return () => clearInterval(timer);
   }, [revenue]);
@@ -230,23 +236,26 @@ export default function Dashboard() {
             { label: 'Total Customers', value: totalCustomers, sub: 'Active CRM profiles', color: 'brand', icon: <Users size={20} /> },
             { label: 'Catalog Products', value: totalProducts, sub: 'Unique SKUs tracked', color: 'purple', icon: <Package size={20} /> },
             { label: 'Stock Alerts', value: lowStockAlerts, sub: 'Items below threshold', color: 'amber', icon: <AlertTriangle size={20} />, warn: lowStockAlerts > 0 },
-          ].map((card, i) => (
-            <AnimatedSection key={card.label} delay={i * 0.1}>
-              <motion.div
-                variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
-                className="glass-panel glass-panel-hover p-6 rounded-2xl"
-              >
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 text-sm font-medium">{card.label}</span>
-                  <div className={`p-2 bg-${card.color}-500/10 text-${card.color}-400 rounded-lg`}>{card.icon}</div>
-                </div>
-                <div className="mt-4">
-                  <span className={`text-3xl font-display font-bold ${card.warn ? 'text-amber-400' : 'text-white'}`}>{card.value}</span>
-                  <p className={`text-xs mt-1 ${i === 0 ? 'text-emerald-400' : 'text-slate-400'}`}>{card.sub}</p>
-                </div>
-              </motion.div>
-            </AnimatedSection>
-          ))}
+          ].map((card, i) => {
+            const style = KPI_STYLES[card.color] || KPI_STYLES.brand;
+            return (
+              <AnimatedSection key={card.label} delay={i * 0.1}>
+                <motion.div
+                  variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
+                  className="glass-panel glass-panel-hover p-6 rounded-2xl"
+                >
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400 text-sm font-medium">{card.label}</span>
+                    <div className={`p-2 ${style.bg} ${style.text} rounded-lg`}>{card.icon}</div>
+                  </div>
+                  <div className="mt-4">
+                    <span className={`text-3xl font-display font-bold ${card.warn ? 'text-amber-400' : 'text-white'}`}>{card.value}</span>
+                    <p className={`text-xs mt-1 ${i === 0 ? 'text-emerald-400' : 'text-slate-400'}`}>{card.sub}</p>
+                  </div>
+                </motion.div>
+              </AnimatedSection>
+            );
+          })}
         </motion.div>
       )}
 
@@ -259,21 +268,21 @@ export default function Dashboard() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-800 text-slate-400 text-sm">
-                    <th className="pb-3 font-medium">Quote #</th>
-                    <th className="pb-3 font-medium">Customer</th>
-                    <th className="pb-3 font-medium text-right">Total</th>
-                    <th className="pb-3 font-medium text-center">Status</th>
-                    <th className="pb-3 font-medium text-center">Actions</th>
+                    <th scope="col" className="pb-3 font-medium">Quote #</th>
+                    <th scope="col" className="pb-3 font-medium">Customer</th>
+                    <th scope="col" className="pb-3 font-medium text-right">Total</th>
+                    <th scope="col" className="pb-3 font-medium text-center">Status</th>
+                    <th scope="col" className="pb-3 font-medium text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/50 text-sm">
                   {quotes.length === 0 ? (
                     <tr><td colSpan={5} className="py-6 text-center text-slate-500">No quotes generated yet.</td></tr>
-                  ) : quotes.map((quote: { id: string; quoteNumber: string; customerName: string; total: string; status: string; validUntil?: string | null }) => (
+                  ) : quotes.map((quote) => (
                     <tr key={quote.id} className="hover:bg-slate-900/30 transition-colors">
                       <td className="py-3.5 font-medium text-white">{quote.quoteNumber}</td>
                       <td className="py-3.5 text-slate-300">{quote.customerName}</td>
-                      <td className="py-3.5 text-right text-slate-300 font-mono">${parseFloat(quote.total).toFixed(2)}</td>
+                      <td className="py-3.5 text-right text-slate-300 font-mono">${(parseFloat(quote.total) || 0).toFixed(2)}</td>
                       <td className="py-3.5 text-center">
                         <div className="flex items-center justify-center gap-1 flex-wrap">
                           <StatusPill
@@ -292,35 +301,35 @@ export default function Dashboard() {
                         {/* Desktop actions */}
                         <div className="hidden sm:flex items-center justify-center gap-1.5 flex-wrap">
                           <button onClick={() => { setEditingQuote(quote.id); setActiveTab('quotes'); }}
-                            className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors" title="Edit">
+                            className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors cursor-pointer" title="Edit" aria-label={`Edit quote ${quote.quoteNumber}`}>
                             <Edit3 size={15} />
                           </button>
                           <button onClick={() => handleDuplicate(quote.id)} disabled={duplicatingId === quote.id}
-                            className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors disabled:opacity-50" title="Duplicate as Draft">
+                            className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors disabled:opacity-50 cursor-pointer" title="Duplicate as Draft" aria-label={`Duplicate quote ${quote.quoteNumber}`}>
                             {duplicatingId === quote.id ? <Loader2 size={15} className="animate-spin" /> : <Copy size={15} />}
                           </button>
                           <button onClick={() => generatePdf(quote.id)} disabled={generatingPdfId === quote.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-brand-500 hover:bg-brand-600 text-white transition-colors disabled:opacity-50">
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-brand-500 hover:bg-brand-600 text-white transition-colors disabled:opacity-50 cursor-pointer" aria-label={`Download PDF for quote ${quote.quoteNumber}`}>
                             {generatingPdfId === quote.id ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
                             <span>PDF</span>
                           </button>
                           <button onClick={() => exportExcel(quote.id)} disabled={exportingExcelId === quote.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50">
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 cursor-pointer" aria-label={`Export Excel for quote ${quote.quoteNumber}`}>
                             {exportingExcelId === quote.id ? <Loader2 size={12} className="animate-spin" /> : <FileSpreadsheet size={12} />}
                             <span>XLS</span>
                           </button>
                           <button onClick={() => { if (confirm('Delete this quote? Stock will be restored if accepted.')) deleteQuote(quote.id); }}
-                            className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors" title="Delete">
+                            className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer" title="Delete" aria-label={`Delete quote ${quote.quoteNumber}`}>
                             <Trash2 size={15} />
                           </button>
                         </div>
                         {/* Mobile overflow menu */}
                         <OverflowMenu>
-                          <button onClick={() => { setEditingQuote(quote.id); setActiveTab('quotes'); }} className="w-full text-left px-3 py-2 text-xs text-cyan-400 hover:bg-slate-800 flex items-center gap-2"><Edit3 size={13} /> Edit</button>
-                          <button onClick={() => handleDuplicate(quote.id)} className="w-full text-left px-3 py-2 text-xs text-violet-400 hover:bg-slate-800 flex items-center gap-2"><Copy size={13} /> Duplicate</button>
-                          <button onClick={() => generatePdf(quote.id)} className="w-full text-left px-3 py-2 text-xs text-brand-400 hover:bg-slate-800 flex items-center gap-2"><Download size={13} /> Export PDF</button>
-                          <button onClick={() => exportExcel(quote.id)} className="w-full text-left px-3 py-2 text-xs text-emerald-400 hover:bg-slate-800 flex items-center gap-2"><FileSpreadsheet size={13} /> Export Excel</button>
-                          <button onClick={() => { if (confirm('Delete this quote?')) deleteQuote(quote.id); }} className="w-full text-left px-3 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center gap-2"><Trash2 size={13} /> Delete</button>
+                          <button onClick={() => { setEditingQuote(quote.id); setActiveTab('quotes'); }} className="w-full text-left px-3 py-2 text-xs text-cyan-400 hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><Edit3 size={13} /> Edit</button>
+                          <button onClick={() => handleDuplicate(quote.id)} className="w-full text-left px-3 py-2 text-xs text-violet-400 hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><Copy size={13} /> Duplicate</button>
+                          <button onClick={() => generatePdf(quote.id)} className="w-full text-left px-3 py-2 text-xs text-brand-400 hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><Download size={13} /> Export PDF</button>
+                          <button onClick={() => exportExcel(quote.id)} className="w-full text-left px-3 py-2 text-xs text-emerald-400 hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><FileSpreadsheet size={13} /> Export Excel</button>
+                          <button onClick={() => { if (confirm('Delete this quote?')) deleteQuote(quote.id); }} className="w-full text-left px-3 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><Trash2 size={13} /> Delete</button>
                         </OverflowMenu>
                       </td>
                     </tr>

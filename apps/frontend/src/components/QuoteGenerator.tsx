@@ -14,7 +14,7 @@ export default function QuoteGenerator() {
   const { data: customers = [] } = useCustomers();
   const { data: inventory = [] } = useInventory();
 
-  const [customerId, setCustomerId] = useState('');
+  const [customerId, setCustomerId] = useState(() => (typeof useSheetStore?.getState === 'function' ? useSheetStore.getState()?.filters?.customerId : '') || '');
   const [items, setItems] = useState<{ productId: string; quantity: number; unitPrice: number; name: string }[]>([]);
   const [notes, setNotes] = useState('');
   const [validUntil, setValidUntil] = useState('');
@@ -27,17 +27,26 @@ export default function QuoteGenerator() {
   // Load quote data when editing
   useEffect(() => {
     if (!editingQuoteId) {
-      setCustomerId(''); // eslint-disable-line
-      setItems([]);
-      setNotes('');
-      setValidUntil('');
-      return;
+      const state = typeof useSheetStore?.getState === 'function' ? useSheetStore.getState() : null;
+      const initialCustomer = state?.filters?.customerId || '';
+      const timer = setTimeout(() => {
+        setCustomerId(initialCustomer);
+        setItems([]);
+        setNotes('');
+        setValidUntil('');
+        if (initialCustomer && state?.setFilter) {
+          state.setFilter('customerId', '');
+        }
+      }, 0);
+      return () => clearTimeout(timer);
     }
 
+    let isMounted = true;
     const loadQuote = async () => {
       setLoadingQuote(true);
       try {
         const quote = await apiFetch<Quote>(`${API_BASE}/quotes/${editingQuoteId}`);
+        if (!isMounted) return;
         setCustomerId(quote.customerId);
         setNotes(quote.notes ?? '');
         setValidUntil(quote.validUntil ? new Date(quote.validUntil).toISOString().slice(0, 10) : '');
@@ -48,12 +57,13 @@ export default function QuoteGenerator() {
           unitPrice: Number(i.unitPrice),
         })));
       } catch {
-        useSheetStore.getState().addToast('Failed to load quote', 'error');
+        if (isMounted) useSheetStore.getState().addToast('Failed to load quote', 'error');
       } finally {
-        setLoadingQuote(false);
+        if (isMounted) setLoadingQuote(false);
       }
     };
     loadQuote();
+    return () => { isMounted = false; };
   }, [editingQuoteId]);
 
   // Add empty item line
@@ -189,19 +199,22 @@ export default function QuoteGenerator() {
         <form onSubmit={handleSubmit} className="lg:col-span-2 glass-panel p-6 rounded-2xl space-y-6">
           {/* Client Selection */}
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-300">Client / Customer</label>
+            <label htmlFor="quote-customer-select" className="text-sm font-semibold text-slate-300">Client / Customer</label>
             <input
               type="text"
               placeholder="Search customers..."
               value={customerSearch}
               onChange={(e) => setCustomerSearch(e.target.value)}
+              aria-label="Filter customer options"
               className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-sm text-slate-300 focus:outline-none focus:border-brand-500 mb-2"
             />
             <select
+              id="quote-customer-select"
               required
               value={customerId}
               onChange={(e) => { setCustomerId(e.target.value); setCustomerSearch(''); }}
-              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-300 focus:outline-none focus:border-brand-500"
+              aria-label="Select a Customer"
+              className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-300 focus:outline-none focus:border-brand-500 cursor-pointer"
             >
               <option value="">Select a Customer...</option>
               {customers
@@ -223,7 +236,8 @@ export default function QuoteGenerator() {
                 onClick={handleAddItem}
                 whileHover={{ scale: 1.02, backgroundColor: 'rgba(30, 41, 59, 0.8)' }}
                 whileTap={{ scale: 0.98 }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-300 rounded-lg transition-colors"
+                aria-label="Add item line"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-300 rounded-lg transition-colors cursor-pointer"
               >
                 <Plus size={14} />
                 <span>Add Item</span>
@@ -256,13 +270,15 @@ export default function QuoteGenerator() {
                             copy[index] = e.target.value;
                             setProductSearch(copy);
                           }}
+                          aria-label={`Search product for line ${index + 1}`}
                           className="w-full bg-slate-950 border border-slate-800/80 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-brand-500"
                         />
                         <select
                           required
                           value={item.productId}
                           onChange={(e) => { handleProductChange(index, e.target.value); const copy = [...productSearch]; copy[index] = ''; setProductSearch(copy); }}
-                          className="w-full bg-slate-950 border border-slate-800/80 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-brand-500"
+                          aria-label={`Select product for line ${index + 1}`}
+                          className="w-full bg-slate-950 border border-slate-800/80 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-brand-500 cursor-pointer"
                         >
                           <option value="">Select Product...</option>
                           {inventory
@@ -284,6 +300,7 @@ export default function QuoteGenerator() {
                           placeholder="Qty"
                           value={item.quantity || ''}
                           onChange={(e) => handleNumberChange(index, 'quantity', parseInt(e.target.value, 10) || 0)}
+                          aria-label={`Quantity for line ${index + 1}`}
                           className="w-full bg-slate-950 border border-slate-800/80 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-brand-500 font-mono"
                         />
                       </div>
@@ -297,6 +314,7 @@ export default function QuoteGenerator() {
                           placeholder="Price"
                           value={item.unitPrice || ''}
                           onChange={(e) => handleNumberChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                          aria-label={`Unit price for line ${index + 1}`}
                           className="w-full bg-slate-950 border border-slate-800/80 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-brand-500 font-mono"
                         />
                       </div>
@@ -308,7 +326,8 @@ export default function QuoteGenerator() {
                           onClick={() => handleRemoveItem(index)}
                           whileHover={{ scale: 1.2, backgroundColor: 'rgba(244, 63, 94, 0.1)' }}
                           whileTap={{ scale: 0.8 }}
-                          className="p-2 text-rose-500 rounded-lg transition-colors"
+                          aria-label={`Remove line ${index + 1}`}
+                          className="p-2 text-rose-500 rounded-lg transition-colors cursor-pointer"
                         >
                           <Trash2 size={16} />
                         </motion.button>
@@ -321,8 +340,9 @@ export default function QuoteGenerator() {
           </div>
           {/* Valid Until */}
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-300">Valid Until <span className="text-slate-500 font-normal">(optional)</span></label>
+            <label htmlFor="quote-valid-until" className="text-sm font-semibold text-slate-300">Valid Until <span className="text-slate-500 font-normal">(optional)</span></label>
             <input
+              id="quote-valid-until"
               type="date"
               value={validUntil}
               onChange={(e) => setValidUntil(e.target.value)}
@@ -333,8 +353,9 @@ export default function QuoteGenerator() {
 
           {/* Notes */}
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-300">Notes <span className="text-slate-500 font-normal">(optional)</span></label>
+            <label htmlFor="quote-notes" className="text-sm font-semibold text-slate-300">Notes <span className="text-slate-500 font-normal">(optional)</span></label>
             <textarea
+              id="quote-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Internal notes, special instructions..."
@@ -375,7 +396,7 @@ export default function QuoteGenerator() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             disabled={!customerId || items.length === 0 || submitting}
-            className={`w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-300 relative shadow-lg disabled:opacity-50 disabled:scale-100 disabled:pointer-events-none
+            className={`w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-300 relative shadow-lg disabled:opacity-50 disabled:scale-100 disabled:pointer-events-none cursor-pointer
               ${success 
                 ? 'bg-emerald-500 shadow-emerald-500/20 text-white' 
                 : 'bg-brand-500 shadow-brand-500/20 hover:bg-brand-600 text-white'}
@@ -398,7 +419,7 @@ export default function QuoteGenerator() {
                 className="flex items-center gap-2"
               >
                 <Check size={18} />
-                <span>Enregistré !</span>
+                <span>Quote saved!</span>
               </motion.div>
             ) : (
               <motion.div 

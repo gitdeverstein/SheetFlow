@@ -1,7 +1,7 @@
 import type { StateCreator } from 'zustand';
 import type { InventoryItem } from '@sheetflow/shared';
 import { API_BASE, apiFetch } from './api.js';
-import { queryClient } from '../hooks/queryClient.js';
+import { apiAction } from './apiUtils.js';
 import { inventoryKeys } from '../hooks/useInventory.js';
 
 export interface InventorySlice {
@@ -20,53 +20,64 @@ type SheetStoreState = import('./sheetStore.js').SheetStoreState;
 export const createInventorySlice: StateCreator<SheetStoreState, [], [], InventorySlice> = (_, get: StoreGet) => ({
 
   addInventoryItem: async (data) => {
-    try {
-      await apiFetch(`${API_BASE}/inventory`, {
+    await apiAction(
+      () => apiFetch(`${API_BASE}/inventory`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
-      });
-      queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
-      get().addToast('Product added successfully');
-    } catch (err: unknown) {
-      get().addToast(err instanceof Error ? err.message : 'Failed to add product', 'error');
-    }
+      }),
+      get().addToast,
+      {
+        invalidateKeys: [inventoryKeys.all],
+        successMessage: 'Product added successfully',
+        errorMessage: 'Failed to add product',
+      },
+    );
   },
 
   updateInventoryItem: async (id, data) => {
-    try {
-      await apiFetch(`${API_BASE}/inventory/${id}`, {
+    await apiAction(
+      () => apiFetch(`${API_BASE}/inventory/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
-      });
-      queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
-    } catch (err: unknown) {
-      get().addToast(err instanceof Error ? err.message : 'Failed to update product', 'error');
-    }
+      }),
+      get().addToast,
+      {
+        invalidateKeys: [inventoryKeys.all],
+        errorMessage: 'Failed to update product',
+      },
+    );
   },
 
   deleteInventoryItem: async (id) => {
-    try {
-      await apiFetch(`${API_BASE}/inventory/${id}`, { method: 'DELETE' });
-      queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
-      get().addToast('Product deleted', 'info');
-    } catch (err: unknown) {
-      get().addToast(err instanceof Error ? err.message : 'Failed to delete product', 'error');
-    }
+    await apiAction(
+      () => apiFetch(`${API_BASE}/inventory/${id}`, { method: 'DELETE' }),
+      get().addToast,
+      {
+        invalidateKeys: [inventoryKeys.all],
+        successMessage: 'Product deleted',
+        successType: 'info',
+        errorMessage: 'Failed to delete product',
+      },
+    );
   },
 
   bulkImportInventory: async (rows) => {
-    try {
-      const { imported } = await apiFetch<{ imported: number }>(`${API_BASE}/inventory/import`, {
+    await apiAction(
+      () => apiFetch<{ imported: number }>(`${API_BASE}/inventory/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(rows),
-      });
-      queryClient.invalidateQueries({ queryKey: inventoryKeys.all });
-      get().addToast(`${imported} product(s) imported successfully`);
-    } catch (err: unknown) {
-      get().addToast(err instanceof Error ? err.message : 'Failed to import products', 'error');
-    }
+      }),
+      get().addToast,
+      {
+        invalidateKeys: [inventoryKeys.all],
+        errorMessage: 'Failed to import products',
+        onSuccess: (result, toast) => {
+          toast(`${result.imported} product(s) imported successfully`);
+        },
+      },
+    );
   },
 });

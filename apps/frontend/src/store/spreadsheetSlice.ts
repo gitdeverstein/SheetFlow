@@ -7,6 +7,7 @@ export interface SpreadsheetSlice {
   rows: Record<string, SheetRow[]>;
   savingRowId: string | null;
   recalcTimer: ReturnType<typeof setTimeout> | null;
+  syncServerRows: (tab: 'crm' | 'inventory', serverRows: SheetRow[]) => void;
   updateSpreadsheetCell: (tab: 'crm' | 'inventory' | 'quotes', rowId: string, colId: string, rawValue: string) => void;
   saveSpreadsheetRow: (tab: 'crm' | 'inventory' | 'quotes', rowId: string) => Promise<void>;
   addNewRow: (tab: 'crm' | 'inventory' | 'quotes') => void;
@@ -51,9 +52,36 @@ export const createSpreadsheetSlice: StateCreator<SheetStoreState, [], [], Sprea
   savingRowId: null,
   recalcTimer: null,
 
+  syncServerRows: (tab, serverRows) => {
+    set((state: SheetStoreState) => {
+      const currentTabRows = state.rows[tab] || [];
+      const newDraftRows = currentTabRows.filter((r: SheetRow) => r.isNew);
+      
+      const mergedServerRows = serverRows.map((sRow) => {
+        const existing = currentTabRows.find((r: SheetRow) => r.id === sRow.id);
+        if (!existing) return sRow;
+        // Merge cells from existing if modified locally
+        return {
+          ...sRow,
+          cells: {
+            ...sRow.cells,
+            ...existing.cells,
+          },
+        };
+      });
+
+      return {
+        rows: {
+          ...state.rows,
+          [tab]: [...newDraftRows, ...mergedServerRows],
+        },
+      };
+    });
+  },
+
   updateSpreadsheetCell: (tab, rowId, colId, rawValue) => {
     set((state: SheetStoreState) => {
-      const tabRows = [...state.rows[tab]];
+      const tabRows = [...(state.rows[tab] || [])];
       const rowIndex = tabRows.findIndex((r: SheetRow) => r.id === rowId);
       if (rowIndex === -1) return {};
       const row = { ...tabRows[rowIndex] };
@@ -82,7 +110,7 @@ export const createSpreadsheetSlice: StateCreator<SheetStoreState, [], [], Sprea
       return { rows: { ...state.rows, [tab]: tabRows } };
     });
 
-    const hasFormulas = get().rows[tab].some((r: SheetRow) =>
+    const hasFormulas = (get().rows[tab] || []).some((r: SheetRow) =>
       Object.values(r.cells).some((c) => typeof c.raw === 'string' && c.raw.startsWith('='))
     );
     if (!hasFormulas) return;
@@ -105,22 +133,22 @@ export const createSpreadsheetSlice: StateCreator<SheetStoreState, [], [], Sprea
       const emptyCells: Record<string, SheetRow['cells'][string]> = {};
       state.columns[tab].forEach((col: SheetColumn) => {
         const defaultVal: CellValue = col.id === 'status' ? 'Lead' : col.type === 'number' ? null : '';
-        emptyCells[col.id] = { id: `${col.id}-${newId}`, raw: defaultVal as string, value: defaultVal, error: null };
+        emptyCells[col.id] = { id: `${col.id}-${newId}`, raw: String(defaultVal ?? ''), value: defaultVal, error: null };
       });
       const newRow: SheetRow = { id: newId, cells: emptyCells as SheetRow['cells'], isNew: true };
-      return { rows: { ...state.rows, [tab]: [newRow, ...state.rows[tab]] } };
+      return { rows: { ...state.rows, [tab]: [newRow, ...(state.rows[tab] || [])] } };
     });
   },
 
   saveSpreadsheetRow: async (tab, rowId) => {
     set({ savingRowId: rowId });
     const state = get();
-    const row = state.rows[tab].find((r: SheetRow) => r.id === rowId);
+    const row = (state.rows[tab] || []).find((r: SheetRow) => r.id === rowId);
     if (!row) { set({ savingRowId: null }); return; }
     const payload: Record<string, unknown> = {};
     for (const colId of Object.keys(row.cells)) {
-      let cellVal = row.cells[colId].value;
-      const colDef = state.columns[tab].find((c: SheetColumn) => c.id === colId);
+      let cellVal = row.cells[colId]?.value;
+      const colDef = state.columns[tab]?.find((c: SheetColumn) => c.id === colId);
       if (colDef?.type === 'number') cellVal = Number(cellVal) || 0;
       payload[colId] = cellVal;
     }
@@ -128,6 +156,13 @@ export const createSpreadsheetSlice: StateCreator<SheetStoreState, [], [], Sprea
       if (row.isNew) {
         if (tab === 'crm') await state.addCustomer(payload as Omit<Customer, 'id'>);
         else if (tab === 'inventory') await state.addInventoryItem(payload as Omit<InventoryItem, 'id'>);
+        // Remove draft row since it's now created on server
+        set((s: SheetStoreState) => ({
+          rows: {
+            ...s.rows,
+            [tab]: (s.rows[tab] || []).filter((r: SheetRow) => r.id !== rowId),
+          },
+        }));
       } else {
         if (tab === 'crm') await state.updateCustomer(rowId, payload as Partial<Customer>);
         else if (tab === 'inventory') await state.updateInventoryItem(rowId, payload as Partial<InventoryItem>);
@@ -142,7 +177,7 @@ export const createSpreadsheetSlice: StateCreator<SheetStoreState, [], [], Sprea
 
   deleteSpreadsheetRow: async (tab, rowId) => {
     if (rowId.startsWith('new-')) {
-      set((state: SheetStoreState) => ({ rows: { ...state.rows, [tab]: state.rows[tab].filter((r: SheetRow) => r.id !== rowId) } }));
+      set((state: SheetStoreState) => ({ rows: { ...state.rows, [tab]: (state.rows[tab] || []).filter((r: SheetRow) => r.id !== rowId) } }));
       return;
     }
     const state = get();
