@@ -1,6 +1,9 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { useSheetStore } from './store/sheetStore.js';
 import { login, register, checkAuth } from './store/api.js';
+import Dashboard from './components/Dashboard.js';
+import SpreadsheetGrid from './components/SpreadsheetGrid.js';
+import QuoteGenerator from './components/QuoteGenerator.js';
 import WelcomeScreen from './components/WelcomeScreen.js';
 import VerifyEmail from './components/VerifyEmail.js';
 import ErrorBoundary from './components/ErrorBoundary.js';
@@ -8,20 +11,10 @@ import SkeletonLoader from './components/SkeletonLoader.js';
 import AnimatedSection from './components/AnimatedSection.js';
 import Navbar from './components/Navbar.js';
 import Toaster from './components/Toaster.js';
-import SettingsModal from './components/SettingsModal.js';
-import SkeletonLoader from './components/SkeletonLoader.js';
+import { X, Settings, Sun, Moon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Modal } from './components/ui/Modal.js';
 import { Button } from './components/ui/Button.js';
-
-// Lazy load tab components
-const Dashboard = lazy(() => import('./components/Dashboard.js'));
-const SpreadsheetGrid = lazy(() => import('./components/SpreadsheetGrid.js'));
-const QuoteGenerator = lazy(() => import('./components/QuoteGenerator.js'));
-
-const Dashboard = lazy(() => import('./components/Dashboard.js'));
-const SpreadsheetGrid = lazy(() => import('./components/SpreadsheetGrid.js'));
-const QuoteGenerator = lazy(() => import('./components/QuoteGenerator.js'));
 
 export interface UserInfo {
   id: string;
@@ -39,7 +32,6 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [user, setUser] = useState<UserInfo | null>(null);
-  const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('theme') !== 'light';
@@ -179,10 +171,8 @@ function App() {
         setUser={setUser}
         setIsLoggedIn={setIsLoggedIn}
         isDarkMode={isDarkMode}
-        onToggleTheme={toggleTheme}
+        toggleTheme={toggleTheme}
         setSettingsOpen={setSettingsOpen}
-        profileOpen={profileOpen}
-        setProfileOpen={setProfileOpen}
       />
 
       {/* Main Content Area */}
@@ -208,12 +198,91 @@ function App() {
       </main>
 
       <Toaster />
-      <SettingsModal
-        isOpen={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        isDarkMode={isDarkMode}
-        onToggleTheme={toggleTheme}
-      />
+
+      {/* Settings Modal */}
+      <AnimatePresence>
+        {settingsOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSettingsOpen(false)}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs"
+            />
+            {/* Modal Dialog */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="glass-panel w-full max-w-md rounded-2xl shadow-2xl p-6 relative border border-slate-800/80 z-10"
+            >
+              <button
+                onClick={() => setSettingsOpen(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+              
+              <div className="flex items-center gap-2 mb-4">
+                <Settings className="text-brand-500" size={22} />
+                <h2 className="text-xl font-display font-semibold text-white">Application Settings</h2>
+              </div>
+              
+              {/* Settings Form */}
+              <div className="space-y-4 text-sm text-slate-300">
+                <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-white">Theme</p>
+                    <p className="text-xs text-slate-400">Switch between light and dark appearance.</p>
+                  </div>
+                  <button
+                    onClick={toggleTheme}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-sm text-slate-200 transition-colors cursor-pointer"
+                  >
+                    {isDarkMode ? <Sun size={14} /> : <Moon size={14} />}
+                    <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
+                  </button>
+                </div>
+
+                <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-white">Compact Mode</p>
+                    <p className="text-xs text-slate-400">Reduce padding in tables and grids.</p>
+                  </div>
+                  <input type="checkbox" className="w-4 h-4 accent-brand-500 rounded" />
+                </div>
+
+                <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-white">Auto-Save Sheets</p>
+                    <p className="text-xs text-slate-400">Automatically persist modifications.</p>
+                  </div>
+                  <input type="checkbox" defaultChecked className="w-4 h-4 accent-brand-500 rounded" />
+                </div>
+
+                <div className="p-3.5 bg-slate-900/40 rounded-xl border border-slate-800/60 flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-white">Developer Mode</p>
+                    <p className="text-xs text-slate-400">Show database queries in browser console.</p>
+                  </div>
+                  <input type="checkbox" className="w-4 h-4 accent-brand-500 rounded" />
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => setSettingsOpen(false)}
+                  className="px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-sm font-semibold transition-colors cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
     </ErrorBoundary>
   );

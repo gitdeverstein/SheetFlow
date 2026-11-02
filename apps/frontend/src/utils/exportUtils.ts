@@ -1,5 +1,4 @@
 import { TAX_RATE_LABEL } from '@sheetflow/shared';
-
 import { API_BASE, apiFetch } from '../store/api.js';
 
 export interface ExportQuoteItem {
@@ -31,8 +30,9 @@ export async function fetchFullQuote(id: string): Promise<ExportFullQuote> {
 export async function exportQuotePdf(quote: ExportFullQuote): Promise<void> {
   const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
     import('jspdf'),
-    import('jspdf-autotable'),
+    import('jspdf-autotable')
   ]);
+
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
 
   doc.setFontSize(22);

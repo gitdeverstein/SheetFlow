@@ -8,8 +8,106 @@ import { motion } from 'framer-motion';
 import { QUOTE_STATUS_TRANSITIONS } from '@sheetflow/shared';
 import AnimatedSection from './AnimatedSection.js';
 import SkeletonLoader from './SkeletonLoader.js';
-import StatusPill from './StatusPill.js';
-import DonutChart from './DonutChart.js';
+import Modal from './Modal.js';
+
+// ── SVG Donut Chart ──────────────────────────────────────────────────────────
+const STATUS_COLORS: Record<string, string> = {
+  Draft: '#64748b',
+  Sent: '#3b82f6',
+  Accepted: '#10b981',
+  Rejected: '#f43f5e',
+};
+
+function DonutChart({ data }: { data: Record<string, number> }) {
+  const total = Object.values(data).reduce((s, v) => s + v, 0);
+  if (total === 0) return <p className="text-slate-500 text-sm text-center py-4">No quotes yet.</p>;
+
+  const r = 40;
+  const cx = 60;
+  const cy = 60;
+  const circumference = 2 * Math.PI * r;
+
+  let offset = 0;
+  const slices = Object.entries(data).map(([status, count]) => {
+    const pct = count / total;
+    const dash = pct * circumference;
+    const slice = { status, count, dash, offset, color: STATUS_COLORS[status] ?? '#94a3b8' };
+    offset += dash;
+    return slice;
+  });
+
+  return (
+    <div className="flex items-center gap-6">
+      <svg width="120" height="120" viewBox="0 0 120 120">
+        {slices.map((s) => (
+          <circle
+            key={s.status}
+            cx={cx} cy={cy} r={r}
+            fill="none"
+            stroke={s.color}
+            strokeWidth="18"
+            strokeDasharray={`${s.dash} ${circumference - s.dash}`}
+            strokeDashoffset={-s.offset + circumference / 4}
+            style={{ transform: 'rotate(-90deg)', transformOrigin: '60px 60px' }}
+          />
+        ))}
+        <text x={cx} y={cy + 5} textAnchor="middle" fill="currentColor" className="donut-label" fontSize="14" fontWeight="bold">{total}</text>
+      </svg>
+      <div className="space-y-1.5">
+        {slices.map((s) => (
+          <div key={s.status} className="flex items-center gap-2 text-xs">
+            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+            <span className="text-slate-300">{s.status}</span>
+            <span className="text-slate-500 ml-auto pl-3 font-mono">{s.count}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Status pill ──────────────────────────────────────────────────────────────
+const STATUS_PILL: Record<string, string> = {
+  Draft:    'bg-slate-700/60 text-slate-300 border-slate-600/50',
+  Sent:     'bg-blue-500/15 text-blue-300 border-blue-500/30',
+  Accepted: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+  Rejected: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+};
+
+function StatusPill({ status, transitions, onChange }: { status: string; transitions: readonly string[]; onChange: (s: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+  return (
+    <div ref={ref} className="relative inline-block">
+      <button
+        onClick={() => transitions.length > 0 && setOpen(o => !o)}
+        className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full border transition-colors ${STATUS_PILL[status] ?? 'bg-slate-700 text-slate-300 border-slate-600'} ${transitions.length > 0 ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
+      >
+        <span className={`w-1.5 h-1.5 rounded-full ${STATUS_COLORS[status] ? '' : 'bg-slate-400'}`} style={{ backgroundColor: STATUS_COLORS[status] }} />
+        {status}
+        {transitions.length > 0 && <span className="opacity-60">▾</span>}
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+            className="absolute left-0 top-full mt-1 z-30 bg-slate-900 border border-slate-700 rounded-xl shadow-xl min-w-[110px] overflow-hidden">
+            {transitions.map(s => (
+              <button key={s} onClick={() => { onChange(s); setOpen(false); }}
+                className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-slate-800 transition-colors flex items-center gap-2 ${STATUS_PILL[s] ? 'text-slate-200' : 'text-slate-300'}`}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[s] }} />{s}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 // ── Overflow menu ─────────────────────────────────────────────────────────────
 function OverflowMenu({ children }: { children: React.ReactNode }) {
@@ -75,6 +173,21 @@ export default function Dashboard() {
     message: string;
     onConfirm: () => void;
     variant: 'danger' | 'info' | 'warning';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    variant: 'info',
+  });
+
+  // Modal State
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    variant: 'danger' | 'warning' | 'info';
   }>({
     isOpen: false,
     title: '',
@@ -214,8 +327,8 @@ export default function Dashboard() {
                               if (newStatus === 'Accepted' || quote.status === 'Accepted') {
                                 setModalConfig({
                                   isOpen: true,
-                                  title: 'Change Quote Status',
-                                  message: `Change status to "${newStatus}"? This will adjust inventory stock.`,
+                                  title: 'Adjust Inventory?',
+                                  message: `Changing status to "${newStatus}" will automatically adjust inventory stock levels. Do you want to proceed?`,
                                   onConfirm: () => updateQuoteStatus(quote.id, newStatus),
                                   variant: 'warning',
                                 });
@@ -230,36 +343,52 @@ export default function Dashboard() {
                       <td className="py-3.5">
                         {/* Desktop actions */}
                         <div className="hidden sm:flex items-center justify-center gap-1.5 flex-wrap">
-                          <button onClick={() => { setEditingQuote(quote.id); setActiveTab('quotes'); }}
-                            aria-label={`Edit quote ${quote.quoteNumber}`}
-                            className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors cursor-pointer" title="Edit">
+                          <button
+                            onClick={() => { setEditingQuote(quote.id); setActiveTab('quotes'); }}
+                            className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors"
+                            title="Edit"
+                            aria-label="Edit Quote"
+                          >
                             <Edit3 size={15} />
                           </button>
-                          <button onClick={() => handleDuplicate(quote.id)} disabled={duplicatingId === quote.id}
-                            aria-label={`Duplicate quote ${quote.quoteNumber}`}
-                            className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors disabled:opacity-50 cursor-pointer" title="Duplicate as Draft">
+                          <button
+                            onClick={() => handleDuplicate(quote.id)}
+                            disabled={duplicatingId === quote.id}
+                            className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-colors disabled:opacity-50"
+                            title="Duplicate as Draft"
+                            aria-label="Duplicate Quote"
+                          >
                             {duplicatingId === quote.id ? <Loader2 size={15} className="animate-spin" /> : <Copy size={15} />}
                           </button>
-                          <button onClick={() => generatePdf(quote.id)} disabled={generatingPdfId === quote.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-brand-500 hover:bg-brand-600 text-white transition-colors disabled:opacity-50 cursor-pointer" aria-label={`Download quote ${quote.quoteNumber} as PDF`}>
+                          <button
+                            onClick={() => generatePdf(quote.id)}
+                            disabled={generatingPdfId === quote.id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-brand-500 hover:bg-brand-600 text-white transition-colors disabled:opacity-50"
+                            aria-label="Export PDF"
+                          >
                             {generatingPdfId === quote.id ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
                             <span>PDF</span>
                           </button>
-                          <button onClick={() => exportExcel(quote.id)} disabled={exportingExcelId === quote.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50 cursor-pointer" aria-label={`Download quote ${quote.quoteNumber} as Excel`}>
+                          <button
+                            onClick={() => exportExcel(quote.id)}
+                            disabled={exportingExcelId === quote.id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50"
+                            aria-label="Export Excel"
+                          >
                             {exportingExcelId === quote.id ? <Loader2 size={12} className="animate-spin" /> : <FileSpreadsheet size={12} />}
                             <span>XLS</span>
                           </button>
-                          <button onClick={() => {
-                            setModalConfig({
+                          <button
+                            onClick={() => setModalConfig({
                               isOpen: true,
-                              title: 'Delete Quote',
-                              message: 'Delete this quote? Stock will be restored if accepted.',
+                              title: 'Delete Quote?',
+                              message: 'This action cannot be undone. If this quote was "Accepted", stock will be restored to inventory.',
                               onConfirm: () => deleteQuote(quote.id),
                               variant: 'danger',
-                            });
-                          }}
-                            className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors" title="Delete">
+                            })}
+                            className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors" title="Delete"
+                            aria-label="Delete Quote"
+                          >
                             <Trash2 size={15} />
                           </button>
                         </div>
@@ -269,15 +398,19 @@ export default function Dashboard() {
                           <button onClick={() => handleDuplicate(quote.id)} className="w-full text-left px-3 py-2 text-xs text-violet-400 hover:bg-slate-800 flex items-center gap-2"><Copy size={13} /> Duplicate</button>
                           <button onClick={() => generatePdf(quote.id)} className="w-full text-left px-3 py-2 text-xs text-brand-400 hover:bg-slate-800 flex items-center gap-2"><Download size={13} /> Export PDF</button>
                           <button onClick={() => exportExcel(quote.id)} className="w-full text-left px-3 py-2 text-xs text-emerald-400 hover:bg-slate-800 flex items-center gap-2"><FileSpreadsheet size={13} /> Export Excel</button>
-                          <button onClick={() => {
-                            setModalConfig({
+                          <button
+                            onClick={() => setModalConfig({
                               isOpen: true,
-                              title: 'Delete Quote',
-                              message: 'Delete this quote?',
+                              title: 'Delete Quote?',
+                              message: 'This action cannot be undone. Are you sure you want to delete this quote?',
                               onConfirm: () => deleteQuote(quote.id),
                               variant: 'danger',
-                            });
-                          }} className="w-full text-left px-3 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center gap-2"><Trash2 size={13} /> Delete</button>
+                            })}
+                            className="w-full text-left px-3 py-2 text-xs text-rose-400 hover:bg-slate-800 flex items-center gap-2"
+                            aria-label="Delete Quote"
+                          >
+                            <Trash2 size={13} /> Delete
+                          </button>
                         </OverflowMenu>
                       </td>
                     </tr>
@@ -363,12 +496,11 @@ export default function Dashboard() {
 
       <Modal
         isOpen={modalConfig.isOpen}
-        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
-        onConfirm={modalConfig.onConfirm}
         title={modalConfig.title}
         message={modalConfig.message}
         variant={modalConfig.variant}
-        confirmText={modalConfig.variant === 'danger' ? 'Delete' : 'Confirm'}
+        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={modalConfig.onConfirm}
       />
     </div>
   );

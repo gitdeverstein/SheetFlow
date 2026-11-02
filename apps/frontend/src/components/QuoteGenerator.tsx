@@ -290,7 +290,8 @@ export default function QuoteGenerator() {
                           aria-label={`Remove item ${index + 1}`}
                           whileHover={{ scale: 1.2, backgroundColor: 'rgba(244, 63, 94, 0.1)' }}
                           whileTap={{ scale: 0.8 }}
-                          className="p-2 text-rose-500 rounded-lg transition-colors cursor-pointer"
+                          className="p-2 text-rose-500 rounded-lg transition-colors"
+                          aria-label="Remove item"
                         >
                           <Trash2 size={16} />
                         </motion.button>

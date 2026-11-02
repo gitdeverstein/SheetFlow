@@ -256,11 +256,11 @@ describe('Dashboard', () => {
 
     fireEvent.click(deleteButtons[0]);
 
-    // Should open the Modal - we use findByText for the confirm button
-    const modalConfirmButton = await screen.findByText('Delete', { selector: 'button' });
-    fireEvent.click(modalConfirmButton);
+    // Should show custom Modal now, not window.confirm
+    const confirmButton = await screen.findByRole('button', { name: 'Confirm' });
+    fireEvent.click(confirmButton);
 
-    expect(deleteQuote).toHaveBeenCalled();
+    expect(deleteQuote).toHaveBeenCalledWith('q1');
   });
 
   // ── Low Stock Watchlist ────────────────────────────────────────────────

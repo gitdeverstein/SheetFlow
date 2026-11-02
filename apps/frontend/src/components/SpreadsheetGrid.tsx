@@ -54,7 +54,8 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
   const [editingCell, setEditingCell] = useState<{ rowId: string; colId: string } | null>(null);
   const [editValue, setEditValue] = useState('');
   const [cellHighlight, setCellHighlight] = useState<Record<string, boolean>>({});
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [rowToDelete, setRowToDelete] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(50);
@@ -173,19 +174,19 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
       <Modal
-        isOpen={!!deleteConfirm}
-        onClose={() => setDeleteConfirm(null)}
-        onConfirm={() => {
-          const id = deleteConfirm;
-          setDeleteConfirm(null);
-          if (id) deleteSpreadsheetRow(tab, id);
-        }}
+        isOpen={isDeleteModalOpen}
         title="Delete Record"
-        message="This record will be deleted. You can undo within 4 seconds."
+        message="Are you sure you want to delete this record? You can undo this action within 4 seconds if needed."
         confirmText="Delete"
         variant="danger"
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={() => {
+          if (rowToDelete) {
+            deleteSpreadsheetRow(tab, rowToDelete);
+            setRowToDelete(null);
+          }
+        }}
       />
 
       {/* Spreadsheet Container */}
@@ -202,7 +203,7 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                   <span className="truncate">{col.name}</span>
                   <button
                     onClick={() => setSort(col.id)}
-                    className="p-1 hover:bg-slate-800 text-slate-500 hover:text-slate-200 rounded transition-colors cursor-pointer"
+                    className="p-1 hover:bg-slate-800 text-slate-500 hover:text-slate-200 rounded transition-colors"
                     aria-label={`Sort by ${col.name}`}
                   >
                     {sort?.column === col.id
@@ -317,15 +318,15 @@ export default function SpreadsheetGrid({ tab }: SpreadsheetGridProps) {
                               disabled={isSaving}
                               className="p-1.5 text-emerald-400 rounded-lg transition-colors hover:bg-emerald-500/10 disabled:opacity-50 cursor-pointer"
                               title="Save"
-                              aria-label={`Save row ${index + 1}`}
+                              aria-label="Save Row"
                             >
                               {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                             </button>
                             <button
-                              onClick={() => setDeleteConfirm(row.id)}
-                              className="p-1.5 text-rose-400 rounded-lg transition-colors hover:bg-rose-500/10 cursor-pointer"
+                              onClick={() => { setRowToDelete(row.id); setIsDeleteModalOpen(true); }}
+                              className="p-1.5 text-rose-400 rounded-lg transition-colors hover:bg-rose-500/10"
                               title="Delete"
-                              aria-label={`Delete row ${index + 1}`}
+                              aria-label="Delete Row"
                             >
                               <Trash2 size={14} />
                             </button>

@@ -1,19 +1,22 @@
-import { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, Users, Package, FilePlus, User, Settings, Sun, Moon, LogOut } from 'lucide-react';
 import { useSheetStore } from '../store/sheetStore.js';
 import { logout as apiLogout } from '../store/api.js';
-import type { UserInfo } from '../App.js';
+import { useRef, useEffect, useState } from 'react';
+
+interface UserInfo {
+  id: string;
+  name: string;
+  email: string;
+}
 
 interface NavbarProps {
   user: UserInfo | null;
   setUser: (user: UserInfo | null) => void;
   setIsLoggedIn: (isLoggedIn: boolean) => void;
   isDarkMode: boolean;
-  onToggleTheme: () => void;
+  toggleTheme: () => void;
   setSettingsOpen: (open: boolean) => void;
-  profileOpen: boolean;
-  setProfileOpen: (open: boolean) => void;
 }
 
 export default function Navbar({
@@ -21,12 +24,11 @@ export default function Navbar({
   setUser,
   setIsLoggedIn,
   isDarkMode,
-  onToggleTheme,
+  toggleTheme,
   setSettingsOpen,
-  profileOpen,
-  setProfileOpen
 }: NavbarProps) {
-  const { activeTab, setActiveTab, addToast } = useSheetStore();
+  const { activeTab, setActiveTab } = useSheetStore();
+  const [profileOpen, setProfileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -38,7 +40,14 @@ export default function Navbar({
     };
     document.addEventListener('mousedown', handleOutsideClick);
     return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [profileOpen, setProfileOpen]);
+  }, [profileOpen]);
+
+  const navItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'crm', label: 'CRM Sheets', icon: Users },
+    { id: 'inventory', label: 'Inventory', icon: Package },
+    { id: 'quotes', label: 'Create Quote', icon: FilePlus },
+  ];
 
   return (
     <nav className="glass-panel border-b border-slate-800/80 sticky top-0 z-40">
@@ -54,26 +63,18 @@ export default function Navbar({
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="flex space-x-1" role="tablist">
-              {[
-                { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-                { id: 'crm', label: 'CRM Sheets', icon: Users },
-                { id: 'inventory', label: 'Inventory', icon: Package },
-                { id: 'quotes', label: 'Create Quote', icon: FilePlus },
-              ].map((tab) => {
+            <div className="flex space-x-1">
+              {navItems.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
                 return (
                   <button
                     key={tab.id}
-                    role="tab"
-                    aria-selected={isActive}
-                    onClick={() => setActiveTab(tab.id as any)}
+                    onClick={() => setActiveTab(tab.id as 'crm' | 'inventory' | 'quotes' | 'dashboard')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 relative group
-                      ${isActive
-                        ? 'text-brand-400'
-                        : 'text-slate-400 hover:text-slate-200'}
+                      ${isActive ? 'text-brand-400' : 'text-slate-400 hover:text-slate-200'}
                     `}
+                    aria-label={tab.label}
                   >
                     {isActive && (
                       <motion.div
@@ -94,9 +95,8 @@ export default function Navbar({
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setProfileOpen(!profileOpen)}
-                aria-haspopup="menu"
-                aria-expanded={profileOpen}
                 className="w-9 h-9 rounded-full bg-gradient-to-tr from-brand-600 to-cyan-500 flex items-center justify-center text-white font-semibold text-sm shadow-md shadow-brand-500/20 relative border border-slate-800/80 cursor-pointer focus:outline-none text-white-keep"
+                aria-label="User Profile"
               >
                 {user ? user.name.charAt(0).toUpperCase() + (user.name.split(' ')[1]?.[0] || '') : '?'}
                 <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-slate-950 rounded-full" />
@@ -109,7 +109,6 @@ export default function Navbar({
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95, y: -10 }}
                     transition={{ duration: 0.15 }}
-                    role="menu"
                     className="absolute right-0 mt-2 w-64 glass-panel rounded-2xl shadow-2xl py-2.5 border border-slate-800/80 z-50 overflow-hidden"
                   >
                     <div className="px-4 py-2.5 border-b border-slate-800/60 flex items-center gap-3">
@@ -124,7 +123,6 @@ export default function Navbar({
 
                     <div className="p-1.5 space-y-0.5">
                       <button
-                        role="menuitem"
                         onClick={() => { setSettingsOpen(true); setProfileOpen(false); }}
                         className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-800/50 rounded-xl transition-all text-left cursor-pointer"
                       >
@@ -133,8 +131,7 @@ export default function Navbar({
                       </button>
 
                       <button
-                        role="menuitem"
-                        onClick={onToggleTheme}
+                        onClick={toggleTheme}
                         className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-800/50 rounded-xl transition-all text-left cursor-pointer"
                       >
                         {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
@@ -144,13 +141,12 @@ export default function Navbar({
                       <div className="border-t border-slate-800/60 my-1.5" />
 
                       <button
-                        role="menuitem"
                         onClick={async () => {
                           await apiLogout();
                           setIsLoggedIn(false);
                           setUser(null);
                           setProfileOpen(false);
-                          addToast('Successfully logged out!', 'info');
+                          useSheetStore.getState().addToast('Successfully logged out!', 'info');
                         }}
                         className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-rose-400 hover:text-rose-350 hover:bg-rose-500/10 rounded-xl transition-all text-left cursor-pointer font-semibold"
                       >

@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-import { useSheetStore, type ToastMessage } from '../store/sheetStore.js';
+import { useSheetStore } from '../store/sheetStore.js';
 
 export default function Toaster() {
   const { toasts, removeToast } = useSheetStore();
@@ -8,7 +8,7 @@ export default function Toaster() {
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full">
       <AnimatePresence>
-        {toasts.map((toast: ToastMessage) => (
+        {toasts.map((toast) => (
           <motion.div
             key={toast.id}
             initial={{ opacity: 0, x: 50, scale: 0.9 }}
@@ -38,6 +38,7 @@ export default function Toaster() {
             <button
               onClick={() => removeToast(toast.id)}
               className="text-slate-500 hover:text-slate-300 transition-colors"
+              aria-label="Close notification"
             >
               <X size={14} />
             </button>
