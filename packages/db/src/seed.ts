@@ -163,9 +163,7 @@ async function main() {
     console.log(`  Demo user:  john@sheetflow.com / demo1234!`);
   } catch (error) {
     console.error('Error seeding database:', error);
-    process.exit(1);
-  } finally {
-    await client.end();
+    throw error;
   }
 
   console.log('Database seeded successfully!');
@@ -175,7 +173,7 @@ async function main() {
 
 main()
   .catch((err) => {
-    console.error('Fatal seeding error:', err);
+    console.error(err);
     process.exit(1);
   })
   .finally(async () => {
