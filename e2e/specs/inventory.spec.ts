@@ -24,21 +24,19 @@ test.describe('Inventory Management', () => {
     await page.getByRole('button', { name: /inventory/i }).first().click();
 
     // Seed data has: Premium Widget, Gadget, USB-C Hub, etc.
-    await expect(page.getByText(/Widget/)).toBeVisible();
+    await expect(page.getByText(/Widget/).first()).toBeVisible();
   });
 
   test('should show filter inputs and filter inventory', async ({ page }) => {
     await page.getByRole('button', { name: /inventory/i }).first().click();
 
-    // Filter inputs should be visible
-    const filterInputs = page.locator('input[placeholder="Filter..."]');
-    const count = await filterInputs.count();
-    expect(count).toBeGreaterThanOrEqual(1);
+    // Filter inputs should be visible (use auto-waiting to allow React render)
+    await expect(page.locator('input[placeholder="Filter..."]').first()).toBeVisible();
 
     // Type a filter value
-    await filterInputs.first().fill('Widget');
+    await page.locator('input[placeholder="Filter..."]').first().fill('Widget');
     // After typing, the grid should show only matching items
-    await expect(page.getByText(/Widget/)).toBeVisible();
+    await expect(page.getByText(/Widget/).first()).toBeVisible();
   });
 
   test('should show import CSV button for inventory', async ({ page }) => {

@@ -44,7 +44,11 @@ test.describe('Dashboard', () => {
   });
 
   test('should show PDF and XLS export buttons for each quote', async ({ page }) => {
-    await page.waitForSelector('table tbody tr');
+    // Wait for quotes from seed data to render
+    await expect(page.getByText(/QT-/).first()).toBeVisible({ timeout: 15000 });
+
+    // PDF and XLS export buttons are shown per quote
+    await expect(page.locator('button:has-text("PDF")').first()).toBeVisible({ timeout: 10000 });
 
     const pdfButtons = page.locator('button:has-text("PDF")');
     const xlsButtons = page.locator('button:has-text("XLS")');

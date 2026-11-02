@@ -8,38 +8,40 @@ test.describe('Quote Management', () => {
 
   test('should navigate to quote generator tab', async ({ page }) => {
     // Click on the quotes tab (likely a nav item or button)
-    await page.getByRole('button', { name: /quotes/i }).first().click();
+    await page.getByRole('button', { name: /create quote/i }).first().click();
     await expect(page.getByText('Create New Quote')).toBeVisible();
   });
 
   test('should render the quote form', async ({ page }) => {
-    await page.getByRole('button', { name: /quotes/i }).first().click();
+    await page.getByRole('button', { name: /create quote/i }).first().click();
 
     await expect(page.getByPlaceholder('Search customers...')).toBeVisible();
-    await expect(page.getByText('Add Item')).toBeVisible();
+    await expect(page.getByRole('button', { name: /add item/i })).toBeVisible();
     await expect(page.getByText('Summary')).toBeVisible();
     await expect(page.getByText('Total Quote Value')).toBeVisible();
   });
 
   test('should select a customer and see options', async ({ page }) => {
-    await page.getByRole('button', { name: /quotes/i }).first().click();
+    await page.getByRole('button', { name: /create quote/i }).first().click();
 
-    // The customer dropdown should have seed data
+    // The customer dropdown should have seed data — wait for options to load
     const customerSelect = page.locator('select').first();
-    const options = await customerSelect.locator('option').allTextContents();
-    const hasCustomer = options.some((o) => o.includes('Acme') || o.includes('Dupont') || o.includes('GreenLeaf'));
-    expect(hasCustomer).toBeTruthy();
+    await expect(async () => {
+      const options = await customerSelect.locator('option').allTextContents();
+      const hasCustomer = options.some((o) => o.includes('Acme') || o.includes('Dupont') || o.includes('GreenLeaf'));
+      expect(hasCustomer).toBeTruthy();
+    }).toPass({ timeout: 15000 });
   });
 
   test('should add and remove line items', async ({ page }) => {
-    await page.getByRole('button', { name: /quotes/i }).first().click();
+    await page.getByRole('button', { name: /create quote/i }).first().click();
 
     // Add first item
-    await page.getByText('Add Item').click();
+    await page.getByRole('button', { name: /add item/i }).first().click();
     await expect(page.getByText('No items added yet')).toBeHidden();
 
     // Add second item
-    await page.getByText('Add Item').click();
+    await page.getByRole('button', { name: /add item/i }).first().click();
 
     // Should see two items now — look for product select dropdowns
     const productSelects = page.locator('select').filter({ has: page.locator('option:has-text("Widget")') });
@@ -53,13 +55,13 @@ test.describe('Quote Management', () => {
   });
 
   test('should calculate totals when items are added', async ({ page }) => {
-    await page.getByRole('button', { name: /quotes/i }).first().click();
+    await page.getByRole('button', { name: /create quote/i }).first().click();
 
-    // Initially shows $0.00
-    await expect(page.getByText('$0.00')).toBeVisible();
+    // Initially shows $0.00 — appears in subtotal, tax, and total
+    await expect(page.getByText('$0.00').first()).toBeVisible();
 
     // Add an item — the summary should now show zero values (no product selected)
-    await page.getByText('Add Item').click();
+    await page.getByRole('button', { name: /add item/i }).first().click();
 
     // Select a customer
     const customerSelect = page.locator('select').first();
