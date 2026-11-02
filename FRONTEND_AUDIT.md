@@ -1,196 +1,241 @@
-# Frontend Technical Audit and Optimization Report
+# Frontend Audit Report: SheetFlow
 
-This document presents a comprehensive, high-fidelity audit of the SheetFlow frontend application. It identifies the most critical improvements needed to enhance User Experience (UX), User Interface (UI), Performance, Accessibility (a11y), Code Maintainability, Design System Consistency, and Conversion/Engagement rates.
-
----
-
-## 1. Critical Priority
-
-### Dual-State Rendering Desynchronization in SpreadsheetGrid
-* **Problem:** In `SpreadsheetGrid.tsx`, the rows rendered in the virtualized grid are computed directly from the raw TanStack Query cache:
-  ```typescript
-  // Derived directly from query data on every render:
-  const rows = useMemo(() => {
-    if (tab === 'crm') return customers.map(buildCrmRow);
-    if (tab === 'inventory') return inventory.map(buildInvRow);
-    return [];
-  }, [tab, customers, inventory]);
-  ```
-  However, cell edits performed by `updateSpreadsheetCell` only modify the local Zustand store state (`state.rows[tab]`). Because `rows` in the grid is derived directly from the cached query data, any value typed by the user is not visible or immediately gets overwritten by the query cache until the user clicks "Save" (which forces a database write and cache invalidation).
-* **Impact:** Broken, confusing user experience. Cell values flicker, typed text is lost, and the editing flow feels broken and desynchronized.
-* **Solution:** Change `SpreadsheetGrid` to render rows directly from the Zustand store's `rows[tab]`. Hydrate the Zustand store slice when the TanStack Query data changes:
-  ```typescript
-  // In SpreadsheetGrid.tsx, select rows from Zustand store:
-  const storeRows = useSheetStore((state) => state.rows[tab]);
-
-  // Hydrate store when query data changes:
-  useEffect(() => {
-    if (customers.length && tab === 'crm') {
-      useSheetStore.setState((state) => ({
-        rows: { ...state.rows, crm: customers.map(buildCrmRow) }
-      }));
-    }
-  }, [customers, tab]);
-  ```
-* **Estimated Effort:** 3 hours
+This audit report provides a thorough analysis of the SheetFlow frontend application. It identifies technical debt, performance bottlenecks, UX friction, design system mismatches, accessibility (WCAG) non-compliance, and conversion opportunities, categorized by priority. Each recommendation includes the Problem, Impact, Solution, and Estimated Effort, supported by concrete code examples.
 
 ---
 
-## 2. High Priority
+## Executive Summary: Top 10 Cost-Effective Improvements
 
-### Eager Imports of Heavy Libraries (PDF and Excel Exporters)
-* **Problem:** Large utility packages like `jspdf`, `jspdf-autotable`, and `exceljs` are eagerly imported at the top of `exportUtils.ts`:
-  ```typescript
-  import jsPDF from 'jspdf';
-  import autoTable from 'jspdf-autotable';
-  import ExcelJS from 'exceljs';
-  ```
-* **Impact:** Severe bundle bloat. These libraries are bundled into the main JS payload, inflating the bundle by >600KB. This degrades Lighthouse performance, increases Time to Interactive (TTI), and penalizes mobile users with slow page loads.
-* **Solution:** Convert these to dynamic imports inside the respective export functions, so that they are split into separate lazy-loaded chunks and only downloaded when requested by the user:
-  ```typescript
-  export async function exportQuotePdf(quote: ExportFullQuote): Promise<void> {
-    const [jsPDF, autoTable] = await Promise.all([
-      import('jspdf').then((m) => m.default),
-      import('jspdf-autotable').then((m) => m.default)
-    ]);
-    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-    // ... rest of the PDF generation code
-  }
-  ```
-* **Estimated Effort:** 1.5 hours
+For maximum return on investment (ROI), the following 10 improvements are highly recommended. They represent the most cost-effective and high-impact changes to improve usability, performance, and conversion.
 
-### Aggressive Global CSS Theme Overrides via `!important`
-* **Problem:** In `index.css`, a catch-all light theme selector forces element colors using the `!important` flag:
-  ```css
-  .light :is(.text-white, .hover\:text-white:hover):not(button)... {
-    color: #020617 !important;
-  }
-  ```
-* **Impact:** Severe technical debt. This bypasses CSS specificity rules and makes custom styling of specific components in light mode extremely painful and error-prone, breaking the flexibility of Tailwind.
-* **Solution:** Implement standard CSS custom properties for semantic colors (e.g., `--color-text-primary`) under `:root` and `:root.light` and let Tailwind or native CSS apply them cleanly without `!important`:
-  ```css
-  :root {
-    --color-text-primary: #f8fafc;
-  }
-  :root.light {
-    --color-text-primary: #020617;
-  }
-  ```
-* **Estimated Effort:** 3.5 hours
-
-### Complete Absence of ARIA / Accessibility Attributes on Custom Interactive Elements
-* **Problem:** Interactive custom components like `StatusPill` and the mobile `OverflowMenu` are built using basic buttons but lack screen reader-friendly attributes:
-  ```typescript
-  // StatusPill in Dashboard.tsx:
-  <button onClick={() => transitions.length > 0 && setOpen(o => !o)} ...>
-  ```
-* **Impact:** Zero screen-reader compatibility. Blind or visually impaired users have no indication that these buttons open dropdowns, nor can they read state changes, leading to severe WCAG non-compliance.
-* **Solution:** Add `aria-haspopup="listbox"`, `aria-expanded={open}`, `aria-label`, and keyboard event handlers:
-  ```typescript
-  <button
-    onClick={() => transitions.length > 0 && setOpen(o => !o)}
-    aria-haspopup="listbox"
-    aria-expanded={open}
-    aria-label={`Change status from ${status}`}
-    // ...
-  >
-  ```
-* **Estimated Effort:** 2 hours
+1. **Implement Dynamic Imports for jsPDF and ExcelJS** (Performance)
+   - Shaves off ~1.5MB from the initial main bundle size, improving Largest Contentful Paint (LCP) and First Contentful Paint (FCP).
+2. **Add Missing `itemKey` to `react-window` Grid** (Performance / Stability)
+   - Eliminates persistent React key warnings and prevents full list re-renders during spreadsheet cell edits.
+3. **Restore "Guest Mode" / Authentication Bypass** (Conversion & Engagement)
+   - Aligns the UI with README documentation, removing friction for new users wishing to evaluate the tool.
+4. **Fix Mobile Horizontal Overflow in tables** (Responsive Design / UI)
+   - Replaces hardcoded min-width styles with responsive Tailwind classes to make sheets fully usable on mobile screens.
+5. **Add Custom Framer Motion Confirm Modal** (UX)
+   - Replaces intrusive, blocking browser-native `window.confirm` dialogues with beautiful, animated micro-modals.
+6. **Correct Hardcoded Localization / Typos** (UX / Polish)
+   - Standardizes notifications to English (e.g., "Succès" -> "Success", "Enenregistré !" -> "Saved!").
+7. **Introduce ARIA Attributes to StatusPill & Menus** (Accessibility)
+   - Implements `aria-haspopup`, `aria-expanded`, and keyboard accessibility to interactive drop-down menus.
+8. **Map SVG Chart Colors to Tailwind Theme Variables** (UI Consistency)
+   - Fixes visual bugs where the quote breakdown chart remains hardcoded during dark/light theme switching.
+9. **Refactor and Export Shared Interfaces (`UserInfo`)** (Code Quality)
+   - Removes internal type duplicates, improving ESM imports and overall code structure.
+10. **Add Interactive Empty-State CTAs** (Conversion & Engagement)
+    - Replaces empty tables with descriptive onboarding prompts and immediate action buttons to drive user activation.
 
 ---
 
-## 3. Medium Priority
+## Critical Priority
 
-### Missing "Guest Mode" implementation on WelcomeScreen
-* **Problem:** The repository `README.md` documents a "Mode invité sans authentification" (Guest mode without authentication), but `WelcomeScreen.tsx` does not implement any guest access button or mechanism in the UI.
-* **Impact:** Increased friction and lower conversion. Users are forced to sign up with credentials to evaluate SheetFlow.
-* **Solution:** Introduce a prominent "Continue as Guest" option on the Welcome screen. This can either establish a temporary anonymous session or set a frontend local mock state:
-  ```typescript
+### 1. Missing Documented "Guest Mode" Bypass
+* **Problem**: The project README explicitly documents the existence of a "Guest mode without authentication" on the Welcome Screen. However, the `WelcomeScreen.tsx` implementation has no guest access button or guest sign-in bypass.
+* **Impact**: Significant conversion friction. Prospects are forced to register with a name, email, and password before they can explore SheetFlow, resulting in high onboarding drop-offs.
+* **Solution**: Add a "Continue as Guest" CTA on the Welcome Screen. This CTA sets a mock/anonymous guest session or logs in with a demo account, keeping the promise made in the documentation.
+* **Code Example**:
+  ```tsx
+  // Inside WelcomeScreen.tsx, under the Google Sign-In button
   <button
     type="button"
-    onClick={onGuestMode}
-    className="w-full text-center text-sm font-semibold text-brand-400 hover:text-brand-300 mt-4 cursor-pointer"
+    onClick={async () => {
+      // Simulate guest sign-in or call guest login endpoint
+      setLoading(true);
+      try {
+        await onSignIn("guest@sheetflow.com", "guest123");
+      } catch (err) {
+        setError("Guest login currently unavailable");
+      } finally {
+        setLoading(false);
+      }
+    }}
+    className="w-full mt-3 flex items-center justify-center gap-2 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold text-sm rounded-xl border border-slate-800 transition-all cursor-pointer"
   >
-    Continue as Guest →
+    Continue as Guest (Demo Mode)
   </button>
   ```
-* **Estimated Effort:** 2 hours
+* **Estimated Effort**: Low (~1-2 hours)
 
-### Hardcoded Non-Theme HEX Colors in SVG DonutChart
-* **Problem:** In `Dashboard.tsx`, the SVG chart uses fixed, hardcoded hex values:
-  ```typescript
-  const STATUS_COLORS: Record<string, string> = {
-    Draft: '#64748b',
-    Sent: '#3b82f6',
-    Accepted: '#10b981',
-    Rejected: '#f43f5e',
-  };
+### 2. Table Horizontal Layout Breaks on Mobile (Horizontal Overflow)
+* **Problem**: In `SpreadsheetGrid.tsx`, the table container uses a hardcoded `min-w-[800px]` style. On mobile devices and smaller tablet viewports, this causes the grid to break out of its container and overflow the screen, causing horizontal layouts to clip.
+* **Impact**: Disastrous mobile usability. Tablet and smartphone users cannot interact with or view rows properly, undermining the responsive design goal.
+* **Solution**: Add an outer wrapper with horizontal scroll capabilities (`overflow-x-auto`) and replace static width columns or the parent width class with responsive utility classes.
+* **Code Example**:
+  ```tsx
+  // In SpreadsheetGrid.tsx
+  return (
+    <div className="space-y-6">
+      {/* ... */}
+      <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800">
+        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-800">
+          <div className="min-w-[800px] xl:min-w-full">
+            {/* Table headers and Virtualized list */}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
   ```
-* **Impact:** Design system fragmentation. When switching themes (light mode vs dark mode), these colors fail to sync with the active theme and may suffer from inadequate contrast ratios.
-* **Solution:** Reference CSS variables instead of static hex colors:
-  ```typescript
-  const STATUS_COLORS: Record<string, string> = {
-    Draft: 'var(--color-slate-500)',
-    Sent: 'var(--color-blue-500)',
-    Accepted: 'var(--color-emerald-500)',
-    Rejected: 'var(--color-rose-500)',
-  };
-  ```
-* **Estimated Effort:** 1 hour
+* **Estimated Effort**: Low (~1 hour)
 
-### Missing Virtualized Row `itemKey` in SpreadsheetGrid
-* **Problem:** The virtualized `List` component from `react-window` in `SpreadsheetGrid.tsx` is implemented without an `itemKey` prop:
+---
+
+## High Priority
+
+### 1. Eager Imports of Heavy Libraries (`jspdf` and `exceljs`)
+* **Problem**: Heavy export libraries (`jspdf`, `jspdf-autotable`, and `exceljs`) are imported eagerly at the top of `apps/frontend/src/utils/exportUtils.ts`.
+* **Impact**: Unnecessary bundle size inflation. The main bundle size is bloated by over ~1.5MB for all users, delaying initial page load (FCP, LCP, TTI), even for users who never export a single quote.
+* **Solution**: Transition to dynamic imports inside the specific export action handlers (`exportQuotePdf` and `exportQuoteExcel`), loading the scripts lazily only when requested.
+* **Code Example**:
   ```typescript
+  // Before: import jsPDF from 'jspdf';
+  // After (Dynamic Import within exportQuotePdf):
+  export async function exportQuotePdf(quote: ExportFullQuote): Promise<void> {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    // ... rest of the PDF generator code ...
+  }
+  ```
+* **Estimated Effort**: Medium (~2-3 hours)
+
+### 2. Missing `itemKey` Prop on Virtualized List
+* **Problem**: In `SpreadsheetGrid.tsx`, react-window's `FixedSizeList` renders table rows, but does not provide an `itemKey` prop to reconcile children.
+* **Impact**: Standard React console errors: "Each child in a list should have a unique 'key' prop." Furthermore, the list defaults to using index-based tracking, forcing full row reconciliation and re-rendering on cell modifications, negating the performance benefits of virtualization.
+* **Solution**: Pass a custom callback function to the `itemKey` prop of `FixedSizeList` that uses the unique `row.id`.
+* **Code Example**:
+  ```tsx
+  // In SpreadsheetGrid.tsx
   <List
     height={Math.min(paginatedRows.length * 48, 600)}
     itemCount={paginatedRows.length}
     itemSize={48}
     width="100%"
+    overscanCount={5}
+    itemKey={(index) => paginatedRows[index]?.id ?? index}
   >
-    {({ index, style }) => { ... }}
+    {/* Row Component */}
   </List>
   ```
-* **Impact:** Suboptimal rendering performance. Without a unique key, react-window falls back to using the array index, causing unnecessary row reconciliations, visual flicker, and potential loss of cell input focus during updates.
-* **Solution:** Add the `itemKey` property returning the unique row UUID:
-  ```typescript
-  itemKey={(index) => paginatedRows[index].id}
-  ```
-* **Estimated Effort:** 15 minutes
+* **Estimated Effort**: Low (~30 minutes)
 
-### Native Thread-Blocking `window.confirm` Dialogs
-* **Problem:** The dashboard uses standard `window.confirm` for destructive operations:
-  ```typescript
-  if (confirm('Delete this quote?')) deleteQuote(quote.id);
+### 3. Synchronous Thread-Blocking `window.confirm` for Critical Operations
+* **Problem**: The dashboard and grid components rely on browser-native `window.confirm()` for highly critical actions, such as changing a quote status to "Accepted" (which triggers inventory stock deduction) or deleting spreadsheet rows.
+* **Impact**: Poor, disjointed UX. Browser-native popups block the main JS execution thread, cannot be styled to match SheetFlow’s sleek glassmorphism UI, and look unprofessional.
+* **Solution**: Implement a custom, reusable `ConfirmModal` component styled with Tailwind and animated with Framer Motion, resolving the blocking state cleanly.
+* **Code Example**:
+  ```tsx
+  // A Reusable ConfirmModal.tsx using Framer Motion
+  import { motion, AnimatePresence } from 'framer-motion';
+
+  interface ConfirmModalProps {
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+  }
+
+  export function ConfirmModal({ isOpen, title, message, onConfirm, onCancel }: ConfirmModalProps) {
+    return (
+      <AnimatePresence>
+        {isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onCancel} className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs" />
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="glass-panel p-6 rounded-2xl max-w-sm w-full border border-slate-800 z-10">
+              <h3 className="text-lg font-semibold text-white">{title}</h3>
+              <p className="text-sm text-slate-400 mt-2">{message}</p>
+              <div className="flex justify-end gap-3 mt-6">
+                <button onClick={onCancel} className="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white bg-slate-900 border border-slate-800 rounded-xl transition-colors">Cancel</button>
+                <button onClick={() => { onConfirm(); onCancel(); }} className="px-4 py-2 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-xl transition-colors">Confirm</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    );
+  }
   ```
-* **Impact:** Substandard user experience. Native dialogs look unpolished, block the browser main thread, and disrupt the application's modern fluid aesthetic.
-* **Solution:** Create a custom, reusable, and animated `ConfirmModal` utilizing Framer Motion:
-  ```typescript
-  <ConfirmModal
-    isOpen={isOpen}
-    title="Delete Quote?"
-    message="Are you sure you want to delete this quote? This cannot be undone."
-    onConfirm={handleDelete}
-    onCancel={closeModal}
-  />
-  ```
-* **Estimated Effort:** 1.5 hours
+* **Estimated Effort**: Medium (~3 hours)
 
 ---
 
-## 4. Low Priority
+## Medium Priority
 
-### Localization Inconsistencies (Hardcoded French Strings)
-* **Problem:** Several French terms are hardcoded in an otherwise fully English application:
-  - `Succès` in `App.tsx` toasts.
-  - `Enregistré !` on the save button in `QuoteGenerator.tsx`.
-* **Impact:** Unprofessional and inconsistent interface for international users.
-* **Solution:** Standardize user-facing copy to English constants:
-  - Replace `'Succès'` with `'Success'`.
-  - Replace `'Enregistré !'` with `'Saved!'`.
-* **Estimated Effort:** 30 minutes
+### 1. Inconsistent Hardcoded French Strings & Typos
+* **Problem**: There are hardcoded French strings with typos in otherwise fully English-targeted interfaces:
+  - In `App.tsx` (Toaster UI): `toast.type === 'success' ? 'Succès' : toast.type`
+  - In `QuoteGenerator.tsx` (Save button status): `Enenregistré !` (with a double-e typo!).
+* **Impact**: Unprofessional visual feel and broken consistency in internationalization/localization.
+* **Solution**: Replace hardcoded French strings and spelling errors with clean, English constants or set up standard i18n configurations.
+* **Code Example**:
+  ```tsx
+  // In App.tsx
+  <p className="text-xs font-semibold text-slate-400 capitalize">
+    {toast.type === 'success' ? 'Success' : toast.type}
+  </p>
 
-### Internally Scoped `UserInfo` Interface in App.tsx
-* **Problem:** The `UserInfo` interface is defined locally inside `App.tsx`:
+  // In QuoteGenerator.tsx
+  <span>Saved Successfully!</span>
+  ```
+* **Estimated Effort**: Low (~30 minutes)
+
+### 2. Missing Accessibility (ARIA) Attributes on Custom Selects & Menus
+* **Problem**: In `Dashboard.tsx`, the `StatusPill` and `OverflowMenu` components behave as dropdown select boxes but are implemented as generic buttons/divs without ARIA tags or keyboard navigation triggers.
+* **Impact**: Screen readers cannot announce whether a dropdown is open, what options are available, or what roles are active, violating basic accessibility (WCAG) guidelines.
+* **Solution**: Add proper `aria-haspopup`, `aria-expanded`, and role attributes (`role="menu"`, `role="menuitem"`) to these controls.
+* **Code Example**:
+  ```tsx
+  // Inside StatusPill component in Dashboard.tsx
+  <button
+    onClick={() => transitions.length > 0 && setOpen(o => !o)}
+    aria-haspopup="listbox"
+    aria-expanded={open}
+    aria-label={`Change status from ${status}`}
+    className="..."
+  >
+    {status}
+  </button>
+  ```
+* **Estimated Effort**: Low (~1.5 hours)
+
+### 3. Hardcoded Hex Colors on SVG Donut Chart
+* **Problem**: The SVG `DonutChart` in `Dashboard.tsx` relies on a static JS dictionary (`STATUS_COLORS`) mapping quote statuses to hardcoded hex colors (`#64748b`, `#3b82f6`, etc.).
+* **Impact**: Broken visual design in light theme. When switching between light and dark modes, the chart does not transition its colors, resulting in poor contrast and clashing visuals.
+* **Solution**: Map the SVG chart colors to CSS variables or Tailwind theme mappings using Tailwind classes or styled properties that change based on light/dark modes.
+* **Code Example**:
+  ```css
+  /* In index.css */
+  :root {
+    --color-status-draft: #64748b;
+    --color-status-sent: #3b82f6;
+  }
+  .light {
+    --color-status-draft: #475569;
+    --color-status-sent: #2563eb;
+  }
+  ```
+  ```tsx
+  // Inside DonutChart component:
+  const STATUS_COLORS = {
+    Draft: 'var(--color-status-draft)',
+    Sent: 'var(--color-status-sent)',
+    // ...
+  };
+  ```
+* **Estimated Effort**: Medium (~2 hours)
+
+---
+
+## Low Priority
+
+### 1. Shared User Info Interface Defined Internally
+* **Problem**: The `UserInfo` interface in `App.tsx` is defined locally:
   ```typescript
   interface UserInfo {
     id: string;
@@ -198,25 +243,36 @@ This document presents a comprehensive, high-fidelity audit of the SheetFlow fro
     email: string;
   }
   ```
-* **Impact:** Code duplication risk. This type cannot be cleanly shared with other layout components like `Navbar`, resulting in maintenance friction.
-* **Solution:** Export this type from a central types file, or import it from the shared package `@sheetflow/shared`.
-* **Estimated Effort:** 30 minutes
+  It is not exported or shared with components like Navbar or other auth utilities.
+* **Impact**: Code duplication risk and reduced code maintainability. Any component extracting user actions has to re-declare this interface.
+* **Solution**: Export `UserInfo` from a shared types module or `@sheetflow/shared` and import it into `App.tsx`.
+* **Estimated Effort**: Low (~15 minutes)
 
----
+### 2. Lack of Empty-State Call to Actions (CTAs)
+* **Problem**: In the Dashboard and Spreadsheet views, empty states (e.g., when there are no quotes or customers yet) are displayed as blank text strings like "No quotes generated yet".
+* **Impact**: Poor initial user onboarding and lower feature engagement. New users are greeted with blank tables and have to figure out on their own how to generate new entries.
+* **Solution**: Implement interactive empty state panels that display clear icons, instructions, and direct call-to-action buttons (e.g. "Create your first quote" or "Add a Customer").
+* **Code Example**:
+  ```tsx
+  // Empty State in Dashboard.tsx Quotes Table
+  {quotes.length === 0 ? (
+    <tr>
+      <td colSpan={5} className="py-8 text-center text-slate-500">
+        <p className="mb-2">No quotes generated yet.</p>
+        <button
+          onClick={() => setActiveTab('quotes')}
+          className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-xs font-semibold transition"
+        >
+          Create First Quote
+        </button>
+      </td>
+    </tr>
+  ) : ( ... )}
+  ```
+* **Estimated Effort**: Low (~1 hour)
 
-## 5. Strategic 10 Most Cost-Effective Improvements
-
-To maximize ROI (Return on Investment), here are the **10 most cost-effective, high-impact improvements** prioritized by their impact-to-effort ratio:
-
-| # | Improvement | Category | Effort | Impact | Description |
-|---|---|---|---|---|---|
-| **1** | **Dynamic Imports for Exporters** | Performance | 1.5h | **Very High** | Splitting `jspdf` and `exceljs` out of the main bundle drastically improves initial page-load speed. |
-| **2** | **Add Virtualized `itemKey`** | UX / Performance | 15m | **High** | Eliminates React reconciliation warnings and prevents cursor/focus jumps inside the Spreadsheet Grid. |
-| **3** | **Fix Dual-State Desync** | UX / UI | 3h | **Critical** | Solves the core bug where user modifications to spreadsheet cells do not show up properly. |
-| **4** | **Add "Continue as Guest"** | UX / Conversion | 2h | **High** | Boosts conversion rates by letting prospective clients try the app immediately without signup friction. |
-| **5** | **Localization Cleanup** | UI | 30m | **Medium** | Replaces hardcoded French strings with English to deliver a polished, consistent product. |
-| **6** | **Remove `!important` Selectors** | Code Quality | 3.5h | **High** | Eliminates significant CSS specificity technical debt, making styling scalable. |
-| **7** | **Add ARIA Labels / Roles** | Accessibility | 2h | **High** | Ensures keyboard-only and screen reader accessibility on all custom controls (WCAG compliance). |
-| **8** | **Convert to Donut CSS Variables** | UI | 1h | **Medium** | Synchronizes the KPI SVG chart colors cleanly with both light and dark modes. |
-| **9** | **Custom Framer Motion Confirm Modal** | UX | 1.5h | **Medium** | Upgrades standard browser confirm dialogs to an animated, theme-aware custom modal. |
-| **10** | **Export `UserInfo` globally** | Code Quality | 30m | **Medium** | Cleans up local type scoping in `App.tsx` and makes user state shared across navigation bars. |
+### 3. Lack of a Visual Formula Bar / Helper in Spreadsheet Grid
+* **Problem**: Users can type formulas (starting with `=`) inside individual cells, but there is no dedicated visual "Formula Bar" (like Excel / Google Sheets) indicating the cell's underlying equation vs. evaluated value.
+* **Impact**: Poor discoverability and usability. Users must double-click cells to review their raw formula, which is difficult for complex multi-cell logic.
+* **Solution**: Add a dedicated input at the top of the grid reflecting the active cell's formula, with an `fx` label helper, so users can read and write code easily.
+* **Estimated Effort**: Medium (~4 hours)

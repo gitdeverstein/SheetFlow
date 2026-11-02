@@ -164,6 +164,8 @@ async function main() {
   } catch (error) {
     console.error('Error seeding database:', error);
     throw error;
+  } finally {
+    await client.end();
   }
 
   console.log('Database seeded successfully!');
@@ -172,10 +174,8 @@ async function main() {
 }
 
 main()
+  .then(() => process.exit(0))
   .catch((err) => {
-    console.error('Fatal error during seed:', err);
+    console.error(err);
     process.exit(1);
-  })
-  .finally(async () => {
-    await client.end();
   });
